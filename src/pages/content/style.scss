@@ -6,7 +6,6 @@ $marker-size: 24px;
 $marker-background-color: hsl(211, 34%, 88%);
 $marker-text-color: hsl(135, 86%, 43%);
 #highlighter-marker {
-  display: flex;
   align-items: center;
   background-color: $marker-background-color;
 

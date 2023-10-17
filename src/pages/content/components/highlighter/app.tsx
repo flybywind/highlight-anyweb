@@ -17,6 +17,7 @@ const getSelectedText = () => window.getSelection().toString();
 interface Position {
   left: string;
   top: string;
+  display: string;
 }
 
 function App() {
@@ -41,6 +42,7 @@ function App() {
     return {
       left: rangeBounds.left + 20 + "px",
       top: rangeBounds.top - 30 + "px",
+      display: "flex",
     };
   }
 

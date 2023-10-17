@@ -1,4 +1,4 @@
-import UrlHighlightsStorage, {
+import urlHighlightsStorage, {
   HighlightInfo,
 } from "@root/src/shared/storages/url_highlights";
 import { queryTabUrl } from "./background_msg";
@@ -7,17 +7,23 @@ export function RenderHighlight(range: Range, color: string) {
   const startNode = range.startContainer;
   const endNode = range.endContainer;
   if (startNode.nodeType == 3 && endNode.nodeType == 3) {
-    const resultNode = document.createElement("i");
-    resultNode.style.backgroundColor = color;
-    resultNode.appendChild(range.extractContents());
-    range.insertNode(resultNode);
     const hlNew: HighlightInfo = {
-      startSelectorPath: getSelector(startNode.parentElement),
+      startNodePath: {
+        selectorPath: getSelector(startNode.parentElement),
+        textIndex: getTextIndex(startNode),
+      },
       startOffset: range.startOffset,
-      endSelectorPath: getSelector(endNode.parentElement),
+      endNodePath: {
+        selectorPath: getSelector(endNode.parentElement),
+        textIndex: getTextIndex(endNode),
+      },
       endOffSet: range.endOffset,
       color: color,
     };
+    const resultNode = document.createElement("span");
+    resultNode.style.backgroundColor = color;
+    resultNode.appendChild(range.extractContents());
+    range.insertNode(resultNode);
     return hlNew;
   } else {
     window.alert("only support to highlight text elements :)");
@@ -28,37 +34,51 @@ export function RenderHighlight(range: Range, color: string) {
 export async function RenderStoredHighlights() {
   const currentUrl = await queryTabUrl();
   async function getAllHighlights() {
-    const urlHighlights = await UrlHighlightsStorage.get();
-    const hls = urlHighlights.get(currentUrl);
+    const urlHighlights = await urlHighlightsStorage.get();
+    const hls = urlHighlights[currentUrl];
     if (hls === undefined) {
       return Array<HighlightInfo>();
     }
     return hls;
   }
   const rangeList = await getAllHighlights();
-  // todo
-  console.log("url:", currentUrl, "range list: ", rangeList);
   rangeList.forEach((hi) => {
     const range = document.createRange();
-    range.setStart(
-      document.querySelector(hi.startSelectorPath),
-      hi.startOffset
-    );
-    range.setEnd(document.querySelector(hi.endSelectorPath), hi.endOffSet);
-    RenderHighlight(range, hi.color);
+    const startElem = document.querySelector(hi.startNodePath.selectorPath);
+    const endElem = document.querySelector(hi.endNodePath.selectorPath);
+    if (startElem !== undefined && endElem !== undefined) {
+      const [startIdx, endIdx] = [
+        hi.startNodePath.textIndex,
+        hi.endNodePath.textIndex,
+      ];
+      if (
+        startIdx < startElem.childNodes.length &&
+        endIdx < endElem.childNodes.length
+      ) {
+        const startNode = startElem.childNodes[startIdx];
+        const endNode = endElem.childNodes[endIdx];
+        range.setStart(startNode, hi.startOffset);
+        range.setEnd(endNode, hi.endOffSet);
+        RenderHighlight(range, hi.color);
+      } else {
+        console.error(`highlight: ${hi} textnode out of boundary`);
+      }
+    } else {
+      console.error(`highlight: ${hi} not found in page`);
+    }
   });
 }
 
 export function UpdateHighlightStore(hlNew: HighlightInfo) {
   queryTabUrl().then(async (url) => {
-    const urlHighlights = await UrlHighlightsStorage.get();
-    let hls = urlHighlights.get(url);
+    const urlHighlights = await urlHighlightsStorage.get();
+    let hls = urlHighlights[url];
     if (hls === undefined) {
       hls = Array<HighlightInfo>();
     }
     hls = [...hls, hlNew];
-    urlHighlights.set(url, hls);
-    UrlHighlightsStorage.set(urlHighlights);
+    urlHighlights[url] = hls;
+    urlHighlightsStorage.set(urlHighlights);
   });
 }
 
@@ -78,4 +98,10 @@ function getSelector(elm: HTMLElement) {
     elm = elm.parentElement;
   }
   return names.join(">");
+}
+
+function getTextIndex(n: Node) {
+  let idx = 0;
+  for (; n.previousSibling; n = n.previousSibling, idx++);
+  return idx;
 }

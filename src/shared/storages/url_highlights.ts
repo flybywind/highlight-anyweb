@@ -5,22 +5,26 @@ import {
 } from "@src/shared/storages/base";
 import { HColor } from "../const/colors";
 
+interface TextNodePath {
+  selectorPath: string;
+  textIndex: number;
+}
 export interface HighlightInfo {
-  startSelectorPath: string;
+  startNodePath: TextNodePath;
   startOffset: number;
-  endSelectorPath: string;
+  endNodePath: TextNodePath;
   endOffSet: number;
   color: HColor | string;
 }
 const Key_UrlHighlights = "urlhighlight-storage-key";
 
-type urlMap = Map<string, HighlightInfo[]>;
+type urlMap = { [key: string]: HighlightInfo[] };
 
 type UrlHighlightsStorage = BaseStorage<urlMap>;
 
 const urlHighlightsStorage: UrlHighlightsStorage = createStorage<urlMap>(
   Key_UrlHighlights,
-  new Map<string, HighlightInfo[]>(),
+  {},
   {
     storageType: StorageType.Local,
   }
