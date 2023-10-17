@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import useStorage from "@src/shared/hooks/useStorage";
 import TagListStore from "@src/shared/storages/custom_tags";
 import { HColor } from "@src/shared/const/colors";
+import withErrorBoundary from "@root/src/shared/hoc/withErrorBoundary";
+import withSuspense from "@root/src/shared/hoc/withSuspense";
 
 function getSelector(elm: HTMLElement) {
   if (elm.tagName === "BODY") return "BODY";
@@ -32,13 +34,23 @@ interface Position {
   top: string;
 }
 
-export default function App() {
-  useEffect(() => {
-    console.log("content view loaded");
-  }, []);
+function App() {
   const defaultPos = { display: "none", left: "0px", top: "0px" } as Position;
   const [pos, setPos] = useState(defaultPos);
-  const [tagList, setTagList] = useStorage(TagListStore);
+  useEffect(() => {
+    document.addEventListener("click", () => {
+      if (getSelectedText().length > 0) {
+        setPos(showMarkerAt());
+      }
+    });
+    document.addEventListener("selectionchange", () => {
+      if (getSelectedText().length == 0) {
+        setPos(defaultPos);
+      }
+    });
+    console.log("add document events");
+  }, []);
+  const tagList = useStorage(TagListStore);
   function showMarkerAt(): Position {
     const rangeBounds = window
       .getSelection()
@@ -51,34 +63,30 @@ export default function App() {
       display: "block",
     };
   }
-  document.addEventListener("click", () => {
-    if (getSelectedText().length > 0) {
-      setPos(showMarkerAt());
-    }
-  });
-  document.addEventListener("selectionchange", () => {
-    if (getSelectedText().length == 0) {
-      setPos(defaultPos);
-    }
-  });
+
   return (
     <div id="highlighter-marker" style={{ position: "fixed", ...pos }}>
-      <span className={"color_circle c_" + HColor.Orange}></span>
-      <span className={"color_circle c_" + HColor.Yellow}></span>
-      <span className={"color_circle c_" + HColor.Green}></span>
-      <span className={"color_circle c_" + HColor.Turquoise}></span>
-      <span className={"color_circle c_" + HColor.Cyan}></span>
-      <span className={"color_circle c_" + HColor.Blue}></span>
-      <input type="text" list="my-highliter-tag-list">
-        <datalist id="my-highliter-tag-list">
-          {tagList.map((t, i) => (
-            <option key={i} value={t}>
-              {t}
-            </option>
-          ))}
-        </datalist>
-      </input>
+      {Object.values(HColor).map((c, i) => (
+        <span
+          key={i}
+          className="color_circle"
+          style={{ backgroundColor: c }}
+        ></span>
+      ))}
+      <input type="text" list="my-highliter-tag-list" />
+      <datalist id="my-highliter-tag-list">
+        {tagList.map((t, i) => (
+          <option key={i} value={t}>
+            {t}
+          </option>
+        ))}
+      </datalist>
       <span className="fa-solid fa-add add-tag"></span>
     </div>
   );
 }
+
+export default withErrorBoundary(
+  withSuspense(App, <div> Loading ... </div>),
+  <div> Error Occur </div>
+);

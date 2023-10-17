@@ -1,10 +1,12 @@
+import styles from "@pages/content/style.scss";
+import fastyles from "@assets/fonts/fontawesome-free-6.4.2-web/css/all.min.css";
+import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "@src/pages/content/components/highlighter/app";
 import UrlHighlightsStorage, {
   HighlightInfo,
 } from "@src/shared/storages/url_highlights";
 import refreshOnUpdate from "virtual:reload-on-update-in-view";
-import colorLog from "@root/utils/log";
 
 refreshOnUpdate("pages/content");
 
@@ -19,7 +21,13 @@ rootIntoShadow.id = "shadow-root";
 const shadowRoot = root.attachShadow({ mode: "open" });
 shadowRoot.appendChild(rootIntoShadow);
 
-createRoot(rootIntoShadow).render(<App />);
+createRoot(rootIntoShadow).render(
+  <React.StrictMode>
+    <style type="text/css">{styles}</style>
+    <style type="text/css">{fastyles}</style>
+    <App />
+  </React.StrictMode>
+);
 
 function getCurrentTabUrl(): Promise<string> {
   return new Promise((resolve) => {

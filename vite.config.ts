@@ -33,7 +33,7 @@ export default defineConfig({
     react(),
     makeManifest(manifest, {
       isDev,
-      contentScriptCssKey: regenerateCacheInvalidationKey(),
+      // contentScriptCssKey: regenerateCacheInvalidationKey(),
     }),
     customDynamicImport(),
     addHmr({ background: enableHmrInBackgroundScript, view: true }),
@@ -67,9 +67,9 @@ export default defineConfig({
           const { dir, name: _name } = path.parse(assetInfo.name);
           const assetFolder = dir.split("/").at(-1);
           const name = assetFolder + firstUpperCase(_name);
-          if (name === "contentStyle") {
-            return `assets/css/contentStyle${cacheInvalidationKey}.chunk.css`;
-          }
+          // if (name === "contentStyle") {
+          //   return `assets/css/contentStyle${cacheInvalidationKey}.chunk.css`;
+          // }
           return `assets/[ext]/${name}.chunk.[ext]`;
         },
       },

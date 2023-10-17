@@ -1,5 +1,4 @@
 import { HighlightInfo } from "@root/src/shared/storages/url_highlights";
-import ColorMap from "@root/src/shared/const/colors";
 interface Prop {
   hl: HighlightInfo;
 }
@@ -9,7 +8,7 @@ export default function Render({ hl }: Prop) {
     <span
       className="highlight"
       style={{
-        backgroundColor: ColorMap.get(hl.color),
+        backgroundColor: hl.color,
         display: "inline",
       }}
     ></span>
