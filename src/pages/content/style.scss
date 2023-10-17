@@ -1,8 +1,38 @@
 // CSS that can pollute global styles. Use it with caution.
 // If you use ShodowRoot for style pollution, this style will not be applied inside the content script.
+@use "sass:math";
+
+$marker-size: 24px;
+$marker-background-color: hsl(211, 34%, 88%);
+$marker-text-color: hsl(135, 86%, 43%);
 #highlighter-marker {
+  display: flex;
+  align-items: center;
+  background-color: $marker-background-color;
+
+  * {
+    display: block;
+  }
+  datalist {
+    display: none;
+  }
   .color_circle {
     content: " ";
-    font-size: 24px;
+    font-size: $marker-size;
+    height: $marker-size;
+    width: $marker-size;
+    border-radius: math.div($marker-size, 4);
+    margin: 2px;
+    cursor: pointer;
+  }
+  .add-tag {
+    text-align: center;
+    font-size: $marker-size;
+    font-weight: bold;
+    height: $marker-size;
+    width: $marker-size;
+    border: 1px solid;
+    border-radius: $marker-size;
+    cursor: pointer;
   }
 }

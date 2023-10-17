@@ -10,7 +10,7 @@ export interface HighlightInfo {
   startOffset: number;
   endSelectorPath: string;
   endOffSet: number;
-  color: HColor;
+  color: HColor | string;
 }
 const Key_UrlHighlights = "urlhighlight-storage-key";
 

@@ -2,26 +2,12 @@ import { useEffect, useState } from "react";
 import useStorage from "@src/shared/hooks/useStorage";
 import TagListStore from "@src/shared/storages/custom_tags";
 import { HColor } from "@src/shared/const/colors";
-import withErrorBoundary from "@root/src/shared/hoc/withErrorBoundary";
-import withSuspense from "@root/src/shared/hoc/withSuspense";
+import withErrorBoundary from "@src/shared/hoc/withErrorBoundary";
+import withSuspense from "@src/shared/hoc/withSuspense";
 
-function getSelector(elm: HTMLElement) {
-  if (elm.tagName === "BODY") return "BODY";
-  const names: string[] = [];
-  while (elm.parentElement && elm.tagName !== "BODY") {
-    if (elm.id) {
-      names.unshift("#" + elm.getAttribute("id")); // getAttribute, because `elm.id` could also return a child element with name "id"
-      break; // Because ID should be unique, no more is needed. Remove the break, if you always want a full path.
-    } else {
-      let c = 1,
-        e = elm;
-      for (; e.previousElementSibling; e = e.previousElementSibling, c++);
-      names.unshift(elm.tagName + ":nth-child(" + c + ")");
-    }
-    elm = elm.parentElement;
-  }
-  return names.join(">");
-}
+import { preventDefault } from "./event";
+import { UpdateHighlightStore, RenderHighlight } from "./render";
+
 // callbacks for selection in global context
 const getSelectedText = () => window.getSelection().toString();
 
@@ -29,7 +15,6 @@ const getSelectedText = () => window.getSelection().toString();
 // alert(qStr);
 
 interface Position {
-  display: string;
   left: string;
   top: string;
 }
@@ -37,35 +22,66 @@ interface Position {
 function App() {
   const defaultPos = { display: "none", left: "0px", top: "0px" } as Position;
   const [pos, setPos] = useState(defaultPos);
+  const [range, setRange] = useState(document.createRange());
+
   useEffect(() => {
     document.addEventListener("click", () => {
       if (getSelectedText().length > 0) {
         setPos(showMarkerAt());
-      }
-    });
-    document.addEventListener("selectionchange", () => {
-      if (getSelectedText().length == 0) {
+      } else {
         setPos(defaultPos);
       }
     });
-    console.log("add document events");
   }, []);
   const tagList = useStorage(TagListStore);
   function showMarkerAt(): Position {
-    const rangeBounds = window
-      .getSelection()
-      .getRangeAt(0)
-      .getBoundingClientRect();
+    const currRange = window.getSelection().getRangeAt(0);
+    const rangeBounds = currRange.getBoundingClientRect();
+    setRange(currRange);
     return {
-      // Substract width of marker button -> 40px / 2 = 20
-      left: rangeBounds.left + rangeBounds.width / 2 - 20 + "px",
+      left: rangeBounds.left + 20 + "px",
       top: rangeBounds.top - 30 + "px",
-      display: "block",
     };
   }
 
+  function clickHandler(e: React.MouseEvent) {
+    const node = e.target as HTMLElement;
+    if (node !== undefined) {
+      const markerNode = node.parentNode;
+      const input = markerNode.querySelector("input") as HTMLInputElement;
+      let category = input.value;
+      if (node.classList.contains("color_circle")) {
+        if (category.length == 0) {
+          if (window.confirm("no category was provided, use default ?")) {
+            category = "default";
+          } else {
+            return;
+          }
+        }
+        const color = node.style.backgroundColor;
+        console.log(
+          "change background color to",
+          color,
+          "category =",
+          category
+        );
+        const hlNew = RenderHighlight(range, color);
+        UpdateHighlightStore(hlNew);
+      } else if (node.classList.contains("add-tag")) {
+        if (category.length == 0) {
+          window.alert("plz provide the category name in the edit box :)");
+        } else {
+          TagListStore.set([...tagList, category]);
+        }
+      }
+    }
+  }
   return (
-    <div id="highlighter-marker" style={{ position: "fixed", ...pos }}>
+    <div
+      id="highlighter-marker"
+      style={{ position: "fixed", ...pos }}
+      onClick={(e) => preventDefault(e, clickHandler, e)}
+    >
       {Object.values(HColor).map((c, i) => (
         <span
           key={i}
@@ -73,7 +89,11 @@ function App() {
           style={{ backgroundColor: c }}
         ></span>
       ))}
-      <input type="text" list="my-highliter-tag-list" />
+      <input
+        type="text"
+        list="my-highliter-tag-list"
+        placeholder="category ..."
+      />
       <datalist id="my-highliter-tag-list">
         {tagList.map((t, i) => (
           <option key={i} value={t}>

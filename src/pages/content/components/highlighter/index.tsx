@@ -3,10 +3,10 @@ import fastyles from "@assets/fonts/fontawesome-free-6.4.2-web/css/all.min.css";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "@src/pages/content/components/highlighter/app";
-import UrlHighlightsStorage, {
-  HighlightInfo,
-} from "@src/shared/storages/url_highlights";
+
 import refreshOnUpdate from "virtual:reload-on-update-in-view";
+
+import { RenderStoredHighlights } from "./render";
 
 refreshOnUpdate("pages/content");
 
@@ -28,33 +28,6 @@ createRoot(rootIntoShadow).render(
     <App />
   </React.StrictMode>
 );
-
-function getCurrentTabUrl(): Promise<string> {
-  return new Promise((resolve) => {
-    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-      if (tabs.length > 0) {
-        resolve(tabs[0].url);
-      } else {
-        resolve("");
-      }
-    });
-  });
-}
-// const [urlHighlights, setUrlHighlights] = useStorage(UrlHighlightsStorage);
-async function RenderStoredHighlights() {
-  const currentUrl = await getCurrentTabUrl();
-  async function getAllHighlights() {
-    const urlHighlights = await UrlHighlightsStorage.get();
-    const hls = urlHighlights.get(currentUrl);
-    if (hls === undefined) {
-      return Array<HighlightInfo>();
-    }
-    return hls;
-  }
-  const rangeList = await getAllHighlights();
-  // todo
-  console.log("url:", currentUrl, "range list: ", rangeList);
-}
 
 RenderStoredHighlights().then(() => {
   console.log("render all highlights");
