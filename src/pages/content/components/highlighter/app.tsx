@@ -61,14 +61,9 @@ function App() {
           }
         }
         const color = node.style.backgroundColor;
-        console.log(
-          "change background color to",
-          color,
-          "category =",
-          category
-        );
-        const hlNew = RenderHighlight(range, color);
-        UpdateHighlightStore(hlNew);
+
+        const { hlNew, callback } = RenderHighlight(range, color);
+        UpdateHighlightStore(hlNew, callback);
       } else if (node.classList.contains("add-tag")) {
         if (category.length == 0) {
           window.alert("plz provide the category name in the edit box :)");

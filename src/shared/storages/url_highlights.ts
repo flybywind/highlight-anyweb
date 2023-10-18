@@ -9,6 +9,12 @@ interface TextNodePath {
   selectorPath: string;
   textIndex: number;
 }
+// 2 problem:
+/*
+1. insertting the marker as native DOM element will pollute the selector path of other marker
+    This will only happen when two markers are overlapped, we can merge the two if we found them overlapped.
+2. assigning a static idx to the marker is not safe, if we delete one, the idx will lose its meaning
+*/
 export interface HighlightInfo {
   startNodePath: TextNodePath;
   startOffset: number;
