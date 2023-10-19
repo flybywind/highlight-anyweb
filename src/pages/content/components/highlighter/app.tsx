@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import useStorage from "@src/shared/hooks/useStorage";
-import TagListStore from "@src/shared/storages/custom_tags";
+import tagListStore from "@src/shared/storages/custom_tags";
+import recentTagStore from "@src/shared/storages/recent_tag";
 import { HColor } from "@src/shared/const/colors";
 import withErrorBoundary from "@src/shared/hoc/withErrorBoundary";
 import withSuspense from "@src/shared/hoc/withSuspense";
 
 import { preventDefault } from "./event";
-import { UpdateHighlightStore, RenderHighlight } from "./render";
+import { RenderHighlightAfterLoad } from "./render";
+import urlHighlightsStorage from "@root/src/shared/storages/url_highlights";
 
 // callbacks for selection in global context
 const getSelectedText = () => window.getSelection().toString();
@@ -34,7 +36,9 @@ function App() {
       }
     });
   }, []);
-  const tagList = useStorage(TagListStore);
+  const tagList = useStorage(tagListStore);
+  const recentTag = useStorage(recentTagStore);
+  const hlListMap = useStorage(urlHighlightsStorage);
   function showMarkerAt(): Position {
     const currRange = window.getSelection().getRangeAt(0);
     const rangeBounds = currRange.getBoundingClientRect();
@@ -51,7 +55,7 @@ function App() {
     if (node !== undefined) {
       const markerNode = node.parentNode;
       const input = markerNode.querySelector("input") as HTMLInputElement;
-      let category = input.value;
+      let category = input.value.length == 0 ? input.placeholder : input.value;
       if (node.classList.contains("color_circle")) {
         if (category.length == 0) {
           if (window.confirm("no category was provided, use default ?")) {
@@ -60,15 +64,13 @@ function App() {
             return;
           }
         }
+        recentTagStore.set(category);
         const color = node.style.backgroundColor;
 
-        const { hlNew, callback } = RenderHighlight(range, color);
-        UpdateHighlightStore(hlNew, callback);
-      } else if (node.classList.contains("add-tag")) {
-        if (category.length == 0) {
-          window.alert("plz provide the category name in the edit box :)");
-        } else {
-          TagListStore.set([...tagList, category]);
+        RenderHighlightAfterLoad(range, color, category, hlListMap);
+
+        if (tagList.find((v) => v === category) === undefined) {
+          tagListStore.set([...tagList, category]);
         }
       }
     }
@@ -86,11 +88,7 @@ function App() {
           style={{ backgroundColor: c }}
         ></span>
       ))}
-      <input
-        type="text"
-        list="my-highliter-tag-list"
-        placeholder="category ..."
-      />
+      <input type="text" list="my-highliter-tag-list" placeholder={recentTag} />
       <datalist id="my-highliter-tag-list">
         {tagList.map((t, i) => (
           <option key={i} value={t}>
@@ -98,7 +96,6 @@ function App() {
           </option>
         ))}
       </datalist>
-      <span className="fa-solid fa-add add-tag"></span>
     </div>
   );
 }
