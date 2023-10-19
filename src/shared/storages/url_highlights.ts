@@ -12,7 +12,8 @@ interface TextNodePath {
 // 2 problem:
 /*
 1. insertting the marker as native DOM element will pollute the selector path of other marker
-    This will only happen when two markers are overlapped, we can merge the two if we found them overlapped.
+    XXX This will only happen when two markers are overlapped, we can merge the two if we found them overlapped.
+        This will happen on all markers lying at the same parent node
 2. assigning a static idx to the marker is not safe, if we delete one, the idx will lose its meaning
 */
 interface HLconfigure {

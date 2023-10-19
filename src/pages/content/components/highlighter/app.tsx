@@ -78,7 +78,7 @@ function App() {
   return (
     <div
       id="highlighter-marker"
-      style={{ position: "fixed", ...pos }}
+      style={{ position: "fixed", zIndex: "9999", ...pos }}
       onClick={(e) => preventDefault(e, clickHandler, e)}
     >
       {Object.values(HColor).map((c, i) => (

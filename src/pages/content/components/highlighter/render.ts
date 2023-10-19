@@ -19,6 +19,7 @@ function createHighlightElem(range: Range, hlInfo: HighlightInfo): Element {
   resultNode.id = hlInfo.id;
   return resultNode;
 }
+// TODO: if select multiple lines, the highlight disapear ...
 /**
  * render highlight after page loaded.
  * @param range original selected range, probably need to merge with the overlapped ones
@@ -53,6 +54,8 @@ export function RenderHighlightAfterLoad(
           selectorPath: getSelector(endNode.parentElement),
           textIndex: getTextIndex(endNode),
         };
+      let startOffset = range.startOffset,
+        endOffset = range.endOffset;
       let needCreateRange = false;
       // todo: this logic ignores the ones that are fully covered by the newly selected range
       const overlapedMark0 =
@@ -70,6 +73,7 @@ export function RenderHighlightAfterLoad(
           document.querySelector(MarkElement + "#" + overlapedMark0[0].id)
         );
         startNodePath = overlapedMark0[0].startNodePath;
+        startOffset = overlapedMark0[0].startOffset;
       }
       if (overlapedMark1 != null) {
         needCreateRange = true;
@@ -78,13 +82,14 @@ export function RenderHighlightAfterLoad(
           document.querySelector(MarkElement + "#" + overlapedMark1[0].id)
         );
         endNodePath = overlapedMark1[0].endNodePath;
+        endOffset = overlapedMark1[0].endOffSet;
       }
       const hlNew = new HighlightInfo({
-        id: Math.random().toString().slice(2),
+        id: "hl_" + Math.random().toString().slice(2),
         startNodePath: startNodePath,
-        startOffset: range.startOffset,
+        startOffset: startOffset,
         endNodePath: endNodePath,
-        endOffSet: range.endOffset,
+        endOffSet: endOffset,
         color: color,
         category: category,
       });
@@ -156,7 +161,7 @@ export async function RenderStoredHighlights() {
   }
   const rangeList = await getAllHighlights();
   rangeList.forEach((hi) => {
-    const range = hi.createRange();
+    const range = new HighlightInfo(hi).createRange();
     if (range !== null) {
       RenderHighlight(range, hi);
     } else {
