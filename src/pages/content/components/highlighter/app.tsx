@@ -6,9 +6,13 @@ import { HColor } from "@src/shared/const/colors";
 import withErrorBoundary from "@src/shared/hoc/withErrorBoundary";
 import withSuspense from "@src/shared/hoc/withSuspense";
 
-import { preventDefault } from "./event";
+import { preventDefault } from "../../utils/event";
 import { RenderHighlightAfterLoad } from "./render";
-import urlHighlightsStorage from "@root/src/shared/storages/url_highlights";
+import urlHighlightsStorage, {
+  HighlightInfo,
+} from "@root/src/shared/html_util/url_highlights";
+import { queryTabUrl } from "../../utils/background_msg";
+import MarkerComponent from "./marker";
 
 // callbacks for selection in global context
 const getSelectedText = () => window.getSelection().toString();
@@ -26,6 +30,9 @@ function App() {
   const defaultPos = { display: "none", left: "0px", top: "0px" } as Position;
   const [pos, setPos] = useState(defaultPos);
   const [range, setRange] = useState(document.createRange());
+  const [hlMarkerLayers, setHlMarkerLayers] = useState(
+    new Array<HighlightInfo>()
+  );
 
   useEffect(() => {
     document.addEventListener("click", () => {
@@ -35,10 +42,19 @@ function App() {
         setPos(defaultPos);
       }
     });
+    document.addEventListener("mousemove", (ev) => {
+      console.log("mouse position: ", ev.clientX, ev.clientY);
+    });
   }, []);
   const tagList = useStorage(tagListStore);
   const recentTag = useStorage(recentTagStore);
   const hlListMap = useStorage(urlHighlightsStorage);
+  queryTabUrl().then((url) => {
+    const curHlist = hlListMap[url];
+    if (curHlist != undefined) {
+      setHlMarkerLayers(curHlist);
+    }
+  });
   function showMarkerAt(): Position {
     const currRange = window.getSelection().getRangeAt(0);
     const rangeBounds = currRange.getBoundingClientRect();
@@ -76,27 +92,40 @@ function App() {
     }
   }
   return (
-    <div
-      id="highlighter-marker"
-      style={{ position: "fixed", zIndex: "9999", ...pos }}
-      onClick={(e) => preventDefault(e, clickHandler, e)}
-    >
-      {Object.values(HColor).map((c, i) => (
-        <span
-          key={i}
-          className="color_circle"
-          style={{ backgroundColor: c }}
-        ></span>
-      ))}
-      <input type="text" list="my-highliter-tag-list" placeholder={recentTag} />
-      <datalist id="my-highliter-tag-list">
-        {tagList.map((t, i) => (
-          <option key={i} value={t}>
-            {t}
-          </option>
+    <>
+      <div
+        id="highlighter-marker"
+        style={{ position: "fixed", zIndex: "9999", ...pos }}
+        onClick={(e) => preventDefault(e, clickHandler, e)}
+      >
+        {Object.values(HColor).map((c, i) => (
+          <span
+            key={i}
+            className="color_circle"
+            style={{ backgroundColor: c }}
+          ></span>
         ))}
-      </datalist>
-    </div>
+        <input
+          type="text"
+          list="my-highliter-tag-list"
+          placeholder={recentTag}
+        />
+        <datalist id="my-highliter-tag-list">
+          {tagList.map((t, i) => (
+            <option key={i} value={t}>
+              {t}
+            </option>
+          ))}
+        </datalist>
+      </div>
+      {hlMarkerLayers.forEach((hl, i) => (
+        <MarkerComponent
+          key={i}
+          selector={hl.startNodePath.selectorPath}
+          id={hl.id}
+        />
+      ))}
+    </>
   );
 }
 

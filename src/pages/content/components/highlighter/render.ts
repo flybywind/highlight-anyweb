@@ -1,8 +1,8 @@
 import urlHighlightsStorage, {
   HighlightInfo,
   UrlHighlightMap,
-} from "@root/src/shared/storages/url_highlights";
-import { queryTabUrl } from "./background_msg";
+} from "@root/src/shared/html_util/url_highlights";
+import { queryTabUrl } from "../../utils/background_msg";
 
 const MarkElement = "SPAN";
 function createHighlightElem(range: Range, hlInfo: HighlightInfo): Element {
