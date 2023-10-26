@@ -1,6 +1,10 @@
 import { vi, beforeEach, test, expect, describe } from "vitest";
 import { JSDOM } from "jsdom";
-import { HighlightArray, HighlightInfo } from "./url_highlights";
+import {
+  HighlightArray,
+  HighlightInfo,
+  HighlightOrderedMap,
+} from "./url_highlights";
 const mockDocument = () =>
   new JSDOM(`
 <!DOCTYPE html>
@@ -117,16 +121,16 @@ describe("insert selections", () => {
   });
 
   test("> no overlap", () => {
-    noOverLap((hls) => {
-      expect(hls.length).eq(2);
-      const firstElem = hls[0].elementList[0];
+    noOverLap((hls: HighlightOrderedMap) => {
+      expect(hls.size()).eq(2);
+      const firstElem = hls.at(0).elementList[0];
       expect(firstElem.parentElement).toBe(parentElem);
-      expect(firstElem.classList.contains("id1")).to.true;
+      expect(HighlightInfo.getHighlightingID(firstElem)).eq("id1");
 
-      const id2 = hls[1].id;
-      const secondElem = hls[1].elementList[0];
+      const id2 = hls.at(1).id;
+      const secondElem = hls.at(1).elementList[0];
       expect(secondElem.parentElement).toBe(parentElem);
-      expect(secondElem.classList.contains(id2)).to.true;
+      expect(HighlightInfo.getHighlightingID(secondElem)).eq(id2);
     });
   });
 
@@ -140,22 +144,22 @@ describe("insert selections", () => {
       hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
     );
     const hls = hlarr2.highlights;
-    expect(hls.length).eq(2);
-    const firstElem = hls[0].elementList[0];
+    expect(hls.size()).eq(2);
+    const firstElem = hls.at(0).elementList[0];
     expect(firstElem.parentElement).toBe(parentElem);
-    expect(firstElem.classList.contains("id1")).to.true;
+    expect(HighlightInfo.getHighlightingID(firstElem)).eq("id1");
 
-    const secondElem = hls[1].elementList[0];
+    const secondElem = hls.at(1).elementList[0];
     expect(secondElem.parentElement).toBe(parentElem);
     expect(HighlightInfo.isHighlightingElem(secondElem)).to.true;
   });
 
   test("> encounter overlap", () => {
-    encounterOverlap((hls) => {
-      expect(hls.length).eq(3);
-      const firstElem = hls[0].elementList[0];
+    encounterOverlap((hls: HighlightOrderedMap) => {
+      expect(hls.size()).eq(3);
+      const firstElem = hls.at(0).elementList[0];
       expect(firstElem.parentElement).toBe(parentElem);
-      expect(firstElem.classList.contains("id1")).to.true;
+      expect(HighlightInfo.getHighlightingID(firstElem)).eq("id1");
       expect(firstElem.childNodes[firstElem.childNodes.length - 1].nodeName).eq(
         "CODE"
       );
@@ -163,7 +167,7 @@ describe("insert selections", () => {
         firstElem.childNodes[firstElem.childNodes.length - 1].textContent
       ).eq("cli");
 
-      const secondElem = hls[1].elementList[0];
+      const secondElem = hls.at(1).elementList[0];
       expect(secondElem.parentElement).eq(parentElem);
       expect(secondElem.childNodes[0].nodeName).eq("CODE");
       expect(secondElem.childNodes[0].textContent).eq("ck");
@@ -181,7 +185,7 @@ describe("insert selections", () => {
       hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
     );
     const hls = hlarr2.highlights;
-    expect(hls.length).eq(3);
+    expect(hls.size()).eq(3);
     expect(document.body.innerHTML).eq(lastInnerHtml);
   });
 

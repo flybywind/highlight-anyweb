@@ -1,26 +1,28 @@
 import assert from "assert";
 
 export class OrderedMap<K, V> {
-  arr: V[];
-  map: Map<K, V>;
-  keyBy: (v: V) => K;
+  private _arr: V[];
+  private _map: Map<K, V>;
+  private _keyBy: (v: V) => K;
 
   constructor(keyBy: (v: V) => K, arr: V[] = null) {
-    this.arr = new Array<V>();
-    this.arr.push(...arr);
-    this.keyBy = keyBy;
-    this.map = new Map<K, V>();
-    this.arr.forEach((i) => this.map.set(this.keyBy(i), i));
+    this._arr = new Array<V>();
+    if (arr !== null) {
+      this._arr.push(...arr);
+    }
+    this._keyBy = keyBy;
+    this._map = new Map<K, V>();
+    this._arr.forEach((i) => this._map.set(this._keyBy(i), i));
   }
 
   append(v: V) {
-    const k = this.keyBy(v);
+    const k = this._keyBy(v);
     if (this.has(k)) {
-      const idx = this.arr.findIndex((v) => this.keyBy(v) == k);
-      this.arr.splice(idx, 1);
+      const idx = this._arr.findIndex((v) => this._keyBy(v) == k);
+      this._arr.splice(idx, 1);
     }
-    this.map.set(k, v);
-    this.arr.push(v);
+    this._map.set(k, v);
+    this._arr.push(v);
   }
 
   /**
@@ -30,10 +32,10 @@ export class OrderedMap<K, V> {
    */
   shiftUpward(i: number, j: number) {
     assert(i > j, `i should > j, but got [${i}, ${j}]`);
-    let t = this.arr[j];
-    this.arr[j] = this.arr[i];
+    let t = this._arr[j];
+    this._arr[j] = this._arr[i];
     for (j = j + 1; j <= i; j++) {
-      [this.arr[j], t] = [t, this.arr[j]];
+      [this._arr[j], t] = [t, this._arr[j]];
     }
   }
   /**
@@ -42,32 +44,36 @@ export class OrderedMap<K, V> {
    * @returns value
    */
   find(k: K): V {
-    return this.map.get(k);
+    return this._map.get(k);
   }
-
+  findIdx(k: K): number {
+    return this._arr.findIndex((v) => this._keyBy(v) === k);
+  }
   at(i: number): V {
-    return this.arr[i];
+    return this._arr[i];
   }
 
   has(k: K): boolean {
     return this.find(k) != undefined;
   }
 
+  map<V2>(t: (v: V) => V2): V2[] {
+    return this._arr.map((v) => t(v));
+  }
+  size(): number {
+    return this._arr.length;
+  }
   removeByIdx(idx: number) {
-    const key = this.keyBy(this.arr[idx]);
+    const key = this._keyBy(this._arr[idx]);
     this._remove_val_(idx, key);
   }
   removeByKey(key: K) {
-    const idx = this.arr.findIndex((v) => this.keyBy(v) === key);
+    const idx = this.findIdx(key);
     this._remove_val_(idx, key);
   }
 
   private _remove_val_(idx: number, key: K) {
-    this.map.delete(key);
-    this.arr.splice(idx, 1);
-  }
-
-  size(): number {
-    return this.arr.length;
+    this._map.delete(key);
+    this._arr.splice(idx, 1);
   }
 }
