@@ -1,3 +1,8 @@
+/**
+ *
+ * @param e Node
+ * @returns true if the node only contains text elements
+ */
 export function textElement(e: Node): boolean {
   if (e.nodeType == Node.TEXT_NODE) {
     return true;

@@ -14,6 +14,17 @@
       "args": ["run", "-t", "> encounter overlap"],
       "smartStep": true,
       "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "test restore after no overlap",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "program": "${workspaceRoot}/../node_modules/vitest/vitest.mjs",
+      "args": ["run", "-t", "> restore after no overlap"],
+      "smartStep": true,
+      "console": "integratedTerminal"
     }
   ]
 }

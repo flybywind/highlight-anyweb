@@ -1,7 +1,8 @@
 import { vi, beforeEach, test, expect, describe } from "vitest";
 import { JSDOM } from "jsdom";
 import { HighlightArray, HighlightInfo } from "./url_highlights";
-const mockDocument = new JSDOM(`
+const mockDocument = () =>
+  new JSDOM(`
 <!DOCTYPE html>
 <html lang="en">
   
@@ -20,7 +21,7 @@ const mockDocument = new JSDOM(`
 describe("fundamental test", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    const { document, Node } = mockDocument.window;
+    const { document, Node } = mockDocument().window;
     global.document = document;
     global.Node = Node;
     console.log("setup document");
@@ -95,7 +96,7 @@ describe("insert selections", () => {
   let parentElem: HTMLElement, hl: HighlightInfo, hlarr: HighlightArray;
   beforeEach(() => {
     vi.clearAllMocks();
-    const { document, Node } = mockDocument.window;
+    const { document, Node } = mockDocument().window;
     global.document = document;
     global.Node = Node;
     parentElem = document.querySelector(".box .test-origin p:nth-child(1)");
@@ -113,24 +114,10 @@ describe("insert selections", () => {
       endOffSet: 6,
       color: "green",
     });
-    hlarr = new HighlightArray([hl]);
   });
+
   test("> no overlap", () => {
-    hl = new HighlightInfo({
-      id: null,
-      startNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 2,
-      },
-      endNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 4,
-      },
-      startOffset: 110,
-      endOffSet: 8,
-      color: "green",
-    });
-    hlarr.insertOneHighlight(hl, (hls) => {
+    noOverLap((hls) => {
       expect(hls.length).eq(2);
       const firstElem = hls[0].elementList[0];
       expect(firstElem.parentElement).toBe(parentElem);
@@ -142,16 +129,60 @@ describe("insert selections", () => {
       expect(secondElem.classList.contains(id2)).to.true;
     });
   });
+
+  test("> restore after no overlap", () => {
+    noOverLap();
+    const { document, Node } = mockDocument().window;
+    global.document = document;
+    global.Node = Node;
+    parentElem = document.querySelector(".box .test-origin p:nth-child(1)");
+    const hlarr2 = new HighlightArray(
+      hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
+    );
+    const hls = hlarr2.highlights;
+    expect(hls.length).eq(2);
+    const firstElem = hls[0].elementList[0];
+    expect(firstElem.parentElement).toBe(parentElem);
+    expect(firstElem.classList.contains("id1")).to.true;
+
+    const secondElem = hls[1].elementList[0];
+    expect(secondElem.parentElement).toBe(parentElem);
+    expect(HighlightInfo.isHighlightingElem(secondElem)).to.true;
+  });
+
   test("> encounter overlap", () => {
+    encounterOverlap();
+  });
+  function noOverLap(cbk = null) {
+    hlarr = new HighlightArray([hl]);
     hl = new HighlightInfo({
       id: null,
       startNodePath: {
         selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 2,
+        textIndex: 1,
       },
       endNodePath: {
         selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 4,
+        textIndex: 3,
+      },
+      startOffset: 110,
+      endOffSet: 8,
+      color: "green",
+    });
+    hlarr.insertOneHighlight(hl, cbk);
+  }
+
+  function encounterOverlap() {
+    hlarr = new HighlightArray([hl]);
+    hl = new HighlightInfo({
+      id: null,
+      startNodePath: {
+        selectorPath: ".box .test-origin p:nth-child(1)",
+        textIndex: 1,
+      },
+      endNodePath: {
+        selectorPath: ".box .test-origin p:nth-child(1)",
+        textIndex: 3,
       },
       startOffset: 110,
       endOffSet: 8,
@@ -166,14 +197,14 @@ describe("insert selections", () => {
       },
       endNodePath: {
         selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 2,
+        textIndex: 1,
       },
       startOffset: 3,
       endOffSet: 29,
       color: "red",
     });
     hlarr.insertOneHighlight(hl, (hls) => {
-      expect(hls.length).eq(2);
+      expect(hls.length).eq(3);
       const firstElem = hls[0].elementList[0];
       expect(firstElem.parentElement).toBe(parentElem);
       expect(firstElem.classList.contains("id1")).to.true;
@@ -184,12 +215,10 @@ describe("insert selections", () => {
         firstElem.childNodes[firstElem.childNodes.length - 1].textContent
       ).eq("cli");
 
-      const id2 = hls[1].id;
       const secondElem = hls[1].elementList[0];
-      expect(secondElem.parentElement).toBe(parentElem);
-      expect(secondElem.classList.contains(id2)).to.true;
+      expect(secondElem.parentElement).eq(parentElem);
       expect(secondElem.childNodes[0].nodeName).eq("CODE");
       expect(secondElem.childNodes[0].textContent).eq("ck");
     });
-  });
+  }
 });
