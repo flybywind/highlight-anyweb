@@ -136,10 +136,8 @@ export class HighlightInfo implements HLconfigure {
         this.range = range;
         return range;
       } else {
-        console.error(
-          "create range failed with offset out-of-range:",
-          this.startNodePath,
-          this.endNodePath
+        throw new Error(
+          `create range failed with offset out-of-range: ${this.startNodePath}, ${this.endNodePath}`
         );
       }
     } else {
@@ -296,10 +294,10 @@ export class HighlightArray {
             startTextIndex++;
             prevSib = prevSib.previousSibling;
           }
-          h.startNodePath.textIndex = startTextIndex;
+          h.startNodePath.textIndex = startTextIndex - 1;
           h.startOffset = startOffset;
           h.endNodePath.textIndex =
-            startTextIndex + hlelem.childNodes.length - 1;
+            startTextIndex + hlelem.childNodes.length - 2;
         });
       });
     }

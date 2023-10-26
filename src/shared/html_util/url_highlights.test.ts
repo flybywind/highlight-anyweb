@@ -151,8 +151,40 @@ describe("insert selections", () => {
   });
 
   test("> encounter overlap", () => {
-    encounterOverlap();
+    encounterOverlap((hls) => {
+      expect(hls.length).eq(3);
+      const firstElem = hls[0].elementList[0];
+      expect(firstElem.parentElement).toBe(parentElem);
+      expect(firstElem.classList.contains("id1")).to.true;
+      expect(firstElem.childNodes[firstElem.childNodes.length - 1].nodeName).eq(
+        "CODE"
+      );
+      expect(
+        firstElem.childNodes[firstElem.childNodes.length - 1].textContent
+      ).eq("cli");
+
+      const secondElem = hls[1].elementList[0];
+      expect(secondElem.parentElement).eq(parentElem);
+      expect(secondElem.childNodes[0].nodeName).eq("CODE");
+      expect(secondElem.childNodes[0].textContent).eq("ck");
+    });
   });
+
+  test("> restore after encounter overlap", () => {
+    encounterOverlap();
+    const lastInnerHtml = global.document.body.innerHTML;
+    const { document, Node } = mockDocument().window;
+    global.document = document;
+    global.Node = Node;
+    parentElem = document.querySelector(".box .test-origin p:nth-child(1)");
+    const hlarr2 = new HighlightArray(
+      hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
+    );
+    const hls = hlarr2.highlights;
+    expect(hls.length).eq(3);
+    expect(document.body.innerHTML).eq(lastInnerHtml);
+  });
+
   function noOverLap(cbk = null) {
     hlarr = new HighlightArray([hl]);
     hl = new HighlightInfo({
@@ -172,7 +204,7 @@ describe("insert selections", () => {
     hlarr.insertOneHighlight(hl, cbk);
   }
 
-  function encounterOverlap() {
+  function encounterOverlap(cbk = null) {
     hlarr = new HighlightArray([hl]);
     hl = new HighlightInfo({
       id: null,
@@ -203,22 +235,6 @@ describe("insert selections", () => {
       endOffSet: 29,
       color: "red",
     });
-    hlarr.insertOneHighlight(hl, (hls) => {
-      expect(hls.length).eq(3);
-      const firstElem = hls[0].elementList[0];
-      expect(firstElem.parentElement).toBe(parentElem);
-      expect(firstElem.classList.contains("id1")).to.true;
-      expect(firstElem.childNodes[firstElem.childNodes.length - 1].nodeName).eq(
-        "CODE"
-      );
-      expect(
-        firstElem.childNodes[firstElem.childNodes.length - 1].textContent
-      ).eq("cli");
-
-      const secondElem = hls[1].elementList[0];
-      expect(secondElem.parentElement).eq(parentElem);
-      expect(secondElem.childNodes[0].nodeName).eq("CODE");
-      expect(secondElem.childNodes[0].textContent).eq("ck");
-    });
+    hlarr.insertOneHighlight(hl, cbk);
   }
 });
