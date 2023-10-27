@@ -4,6 +4,7 @@
  * @returns true if the node only contains text elements
  */
 export function textElement(e: Node): boolean {
+  if (e === null) return false;
   if (e.nodeType == Node.TEXT_NODE) {
     return true;
   }
@@ -34,29 +35,6 @@ export function getSelector(elm: HTMLElement) {
   return names.join(">");
 }
 
-export function getChildNodesIndex(n: Node) {
-  let idx = 0;
-  for (; n.previousSibling; n = n.previousSibling, idx++);
-  return idx;
-}
-
-export function alignElement2SameLevel(
-  n1: HTMLElement,
-  n2: HTMLElement,
-  ancestor: HTMLElement
-) {
-  let n1p, n2p;
-  while (n1 !== ancestor) {
-    n1p = n1;
-    n1 = n1.parentElement;
-  }
-  while (n2 !== ancestor) {
-    n2p = n2;
-    n2 = n2.parentElement;
-  }
-  return [n1, n2];
-}
-
 interface StyleHighlight {
   "background-color": string;
   cursor: string;
@@ -73,8 +51,9 @@ export function unStyleIt(e: HTMLElement) {
   const ownChildNode = e.childNodes;
   let i = ownChildNode.length - 1;
   parentNode.removeChild(e);
+  const newChildNodes = new Array<Node>();
   for (; i >= -1; i--) {
-    let c;
+    let c: ChildNode;
     if (i == -1) {
       c = leadNode;
       if (c == null) {
@@ -84,41 +63,64 @@ export function unStyleIt(e: HTMLElement) {
     } else {
       c = ownChildNode[i];
     }
-    if (c.nodeName == nextNode.nodeName && c.nodeName != "#text") {
+    if (c.nodeName == nextNode.nodeName) {
       // merge node
       const newNode = mergeNode(c, nextNode);
       if (newNode != null) {
-        nextNode.replaceWith(newNode);
-        nextNode = newNode as ChildNode;
+        newChildNodes.push(newNode);
         continue;
       }
     }
     parentNode.insertBefore(c, nextNode);
+    newChildNodes.push(c);
     nextNode = c;
   }
-  //   CleanHighlightStore(e.id);
+  return newChildNodes;
 }
+
+/**
+ * merge the node and save the content to second node
+ * @param n1 first node in front of n2
+ * @param n2 second node
+ * @returns
+ */
 function mergeNode(n1: Node, n2: Node): Node {
   if (n1.nodeName != n2.nodeName) {
-    console.error(
+    throw new Error(
       `error happening when mergint two nodes of different type: ${n1.nodeName} vs ${n2.nodeName}`
     );
-    return null;
   }
-  if (n1.childNodes.length == n2.childNodes.length) {
-    if (n1.nodeType == Node.TEXT_NODE) {
-      return document.createTextNode(n1.textContent + n2.textContent);
+  if (n1.nodeType == Node.TEXT_NODE) {
+    n2.textContent = n1.textContent + n2.textContent;
+    return n2;
+  } else if (n1.nodeType == Node.ELEMENT_NODE) {
+    while (n1.childNodes.length > 0) {
+      n2.insertBefore(n1.lastChild, n2.firstChild);
     }
-    const n3 = document.createElement(n1.nodeName);
-
-    n1.childNodes.forEach((c, i) => {
-      n3.appendChild(mergeNode(c, n2.childNodes[i]));
-    });
-    return n3;
+    return n2;
   } else {
-    console.error(
-      `error happening when mergint two nodes of different structure: ${n1} vs ${n2}`
+    throw new Error(
+      "can't merge two nodes of type: " + n1.nodeType + ", " + n2.nodeType
     );
-    return null;
   }
+}
+
+/**
+ * DFS search the text node from the root
+ * @param rootElem root element
+ * @param callback accept the text node and handle them
+ */
+export function forEachTextNode(
+  rootElem: Element,
+  callback: (h: Node) => void
+) {
+  rootElem.childNodes.forEach((e) => {
+    if (e.nodeType == Node.ELEMENT_NODE) {
+      forEachTextNode(e as HTMLElement, callback);
+    } else {
+      if (e.nodeType == Node.TEXT_NODE) {
+        callback(e);
+      }
+    }
+  });
 }

@@ -18,6 +18,17 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "test no overlap",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "program": "${workspaceRoot}/../node_modules/vitest/vitest.mjs",
+      "args": ["run", "-t", "> no overlap"],
+      "smartStep": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "test encounter overlap",
       "autoAttachChildProcesses": true,
       "skipFiles": ["<node_internals>/**", "**/node_modules/**"],

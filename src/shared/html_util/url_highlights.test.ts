@@ -1,9 +1,11 @@
 import { vi, beforeEach, test, expect, describe } from "vitest";
 import { JSDOM } from "jsdom";
 import {
-  HighlightArray,
+  HighlightSeq,
   HighlightInfo,
   HighlightOrderedMap,
+  Tool,
+  HighLightOriginColorAttr,
 } from "./url_highlights";
 const mockDocument = () =>
   new JSDOM(`
@@ -36,34 +38,6 @@ describe("fundamental test", () => {
     expect(ele).not.eq(null);
     expect(ele.childElementCount).eq(2);
   });
-
-  test("selection mock", () => {
-    const parentElem = document.querySelector(
-      ".box .test-origin p:nth-child(1)"
-    );
-    const hl = new HighlightInfo({
-      id: "id123",
-      startNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 0,
-      },
-      endNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 2,
-      },
-      startOffset: 0,
-      endOffSet: 37,
-      color: "green",
-    });
-    const range = hl.createRange();
-    expect(range).not.eq(null);
-    expect(range.startContainer.parentElement).eq(parentElem);
-    expect(range.endContainer.parentElement).eq(parentElem);
-    expect(range.toString()).eq(
-      "An element receives a click event when a pointing device button "
-    );
-  });
-
   test("check jsdom uppercase nodeName", () => {
     const mockDocument = new JSDOM(`
   <!DOCTYPE html>
@@ -79,16 +53,6 @@ describe("fundamental test", () => {
   </body>
   </html> `);
     const { document } = mockDocument.window;
-    // const result = document.querySelector(
-    //   "div:nth-child(2)>div:nth-child(1)>p:nth-child(1)"
-    // );
-    // expect(result).not.null;
-    // expect(result.id).eq("p1");
-    // const result2 = document.querySelector(
-    //   "DIV:nth-child(2)>DIV:nth-child(1)>P:nth-child(1)"
-    // );
-    // expect(result2).to.null;
-
     const result = document.querySelector("div.box");
     expect(result).not.null;
     const result1 = document.querySelector("DIV.box");
@@ -97,25 +61,23 @@ describe("fundamental test", () => {
 });
 
 describe("highlights operation", () => {
-  let parentElem: HTMLElement, hl: HighlightInfo, hlarr: HighlightArray;
+  let parentElem: HTMLElement,
+    hl: HighlightInfo,
+    hlarr: HighlightSeq,
+    parentSelector: string;
   beforeEach(() => {
     vi.clearAllMocks();
     const { document, Node } = mockDocument().window;
     global.document = document;
     global.Node = Node;
-    parentElem = document.querySelector(".box .test-origin p:nth-child(1)");
+    parentSelector = ".box .test-origin p:nth-child(1)";
+    parentElem = document.querySelector(parentSelector);
     hl = new HighlightInfo({
       id: "id1",
-      startNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 0,
-      },
-      endNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 2,
-      },
-      startOffset: 0,
-      endOffSet: 6,
+      parentSelector: parentSelector,
+      textContent: "An element receives a click event",
+      textStartAt: 0,
+      textEndAt: 33,
       color: "green",
     });
   });
@@ -123,14 +85,22 @@ describe("highlights operation", () => {
   test("> no overlap", () => {
     noOverLap((hls: HighlightOrderedMap) => {
       expect(hls.size()).eq(2);
-      const firstElem = hls.at(0).elementList[0];
-      expect(firstElem.parentElement).toBe(parentElem);
-      expect(HighlightInfo.getHighlightingID(firstElem)).eq("id1");
-
-      const id2 = hls.at(1).id;
-      const secondElem = hls.at(1).elementList[0];
-      expect(secondElem.parentElement).toBe(parentElem);
-      expect(HighlightInfo.getHighlightingID(secondElem)).eq(id2);
+      let hlIdx = 0;
+      for (let i = 0; i < parentElem.childElementCount; i++) {
+        const e = parentElem.children[i] as HTMLElement;
+        if (Tool.isHighlightingElem(e)) {
+          expect([
+            `${hlIdx}th hle`,
+            hlarr.highlights.at(hlIdx).textContent,
+            hlarr.highlights.at(hlIdx).color,
+          ]).deep.eq([
+            `${hlIdx}th hle`,
+            e.textContent,
+            e.style.backgroundColor,
+          ]);
+          hlIdx++;
+        }
+      }
     });
   });
 
@@ -139,33 +109,66 @@ describe("highlights operation", () => {
     const { document, Node } = mockDocument().window;
     global.document = document;
     global.Node = Node;
-    parentElem = document.querySelector(".box .test-origin p:nth-child(1)");
-    const hlarr2 = new HighlightArray(
+    const hlarr2 = new HighlightSeq(
       hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
     );
-    const hls = hlarr2.highlights;
-    expect(hls.size()).eq(2);
-    const firstElem = hls.at(0).elementList[0];
-    expect(firstElem.parentElement).toBe(parentElem);
-    expect(HighlightInfo.getHighlightingID(firstElem)).eq("id1");
-
-    const secondElem = hls.at(1).elementList[0];
-    expect(secondElem.parentElement).toBe(parentElem);
-    expect(HighlightInfo.isHighlightingElem(secondElem)).to.true;
+    expect(hlarr2.highlights.size()).eq(2);
+    let hlIdx = 0;
+    for (let i = 0; i < parentElem.childElementCount; i++) {
+      const e = parentElem.children[i] as HTMLElement;
+      if (Tool.isHighlightingElem(e)) {
+        expect([
+          `${hlIdx}th hle`,
+          hlarr2.highlights.at(hlIdx).textContent,
+          hlarr2.highlights.at(hlIdx).color,
+        ]).deep.eq([`${hlIdx}th hle`, e.textContent, e.style.backgroundColor]);
+        hlIdx++;
+      }
+    }
   });
 
   test("> encounter overlap", () => {
     encounterOverlap((hls: HighlightOrderedMap) => {
       expect(hls.size()).eq(3);
-      const firstElem = hls.at(0).elementList[0];
-      expect(firstElem.parentElement).toBe(parentElem);
-      expect(HighlightInfo.getHighlightingID(firstElem)).eq("id1");
-      expect(firstElem.innerHTML).eq(
-        "An element receives a <code>click</code> event"
-      );
-      const secondElem = hls.at(1).elementList[0];
-      expect(secondElem.parentElement).eq(parentElem);
-      expect(secondElem.innerHTML).eq(" when a pointing device butto");
+
+      const hlMap = new Array<{
+        id: string;
+        color: string;
+        color0: string;
+        content: string;
+      }>();
+
+      forEachHle(parentElem, (e) => {
+        hlMap.push({
+          id: Tool.getHighlightingID(e),
+          color: e.style.backgroundColor,
+          color0: e.getAttribute(HighLightOriginColorAttr),
+          content: e.textContent,
+        });
+      });
+      expect(hlMap.length).eq(4);
+      expect(hlMap).deep.eq([
+        {
+          id: "id1",
+          color: "green",
+          color0: null,
+          content: "An element receives a click",
+        },
+        {
+          id: hls.at(2).id,
+          color: "red",
+          color0: null,
+          content:
+            " event when a pointing device button (such as a mouse's primary mouse button) is both",
+        },
+        { id: "id1", color: "red", color0: "green", content: " event" },
+        {
+          id: hls.at(1).id,
+          color: "blue",
+          color0: null,
+          content: "pointer is located inside the",
+        },
+      ]);
     });
   });
 
@@ -175,7 +178,7 @@ describe("highlights operation", () => {
     const { document, Node } = mockDocument().window;
     global.document = document;
     global.Node = Node;
-    const hlarr2 = new HighlightArray(
+    const hlarr2 = new HighlightSeq(
       hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
     );
     const hls = hlarr2.highlights;
@@ -185,76 +188,87 @@ describe("highlights operation", () => {
 
   test("> insert-delete-restore with overlap", () => {
     encounterOverlap();
-    const ele = hlarr.highlights.at(1).elementList[0],
-      ele2 = hlarr.highlights.at(2);
-    const contentbefore = ele2.elementList[0].textContent;
-    hlarr.deleteOneHighlight(ele);
+    const ele = hlarr.highlights.at(2);
+    const contentbefore = parentElem.textContent;
+    const htmlBefore = parentElem.innerHTML;
+    const p0 = global.document.createElement(parentElem.nodeName);
+    p0.innerHTML = htmlBefore;
+
+    hlarr.deleteOneHighlight({ id: ele.id });
+    const lastWholeContent = global.document.body.textContent;
+
     expect(hlarr.highlights.size()).eq(2);
-    expect(ele2).eq(hlarr.highlights.at(1));
-    const contentAfter = hlarr.highlights.at(1).elementList[0].textContent;
-    expect(contentbefore).eq(contentAfter);
+
+    const contentafter = parentElem.textContent;
+    const htmlAfter = parentElem.innerHTML;
+    const p1 = global.document.createElement(parentElem.nodeName);
+    p1.innerHTML = htmlAfter;
+    console.log("inner html after delete:\n", htmlAfter);
+    expect(contentafter).eq(contentbefore);
+    expect(p0.querySelectorAll("span").length).eq(4);
+    expect(p0.querySelectorAll("span>span").length).eq(1);
+    expect(p1.querySelectorAll("span").length).eq(2);
+    expect(p1.querySelectorAll("span>span").length).eq(0);
 
     // restore
-    const lastInnerHtml = global.document.body.innerHTML;
     const { document, Node } = mockDocument().window;
     global.document = document;
     global.Node = Node;
-    const hlarr2 = new HighlightArray(
+    const hlarr2 = new HighlightSeq(
       hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
     );
     const hls = hlarr2.highlights;
     expect(hls.size()).eq(2);
-    expect(document.body.innerHTML).eq(lastInnerHtml);
+    expect(document.body.textContent).eq(lastWholeContent);
   });
 
+  function forEachHle(
+    parentElem: HTMLElement,
+    callback: (e: HTMLElement) => void
+  ) {
+    for (let i = 0; i < parentElem.childElementCount; i++) {
+      const c = parentElem.children[i];
+      if (c.nodeType == Node.ELEMENT_NODE) {
+        const e = c as HTMLElement;
+
+        if (Tool.isHighlightingElem(e)) {
+          callback(e);
+          forEachHle(e, callback);
+        }
+      }
+    }
+  }
   function noOverLap(cbk = null) {
-    hlarr = new HighlightArray([hl]);
+    hlarr = new HighlightSeq([hl]);
     hl = new HighlightInfo({
       id: null,
-      startNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 1,
-      },
-      endNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 3,
-      },
-      startOffset: 110,
-      endOffSet: 8,
+      parentSelector: parentSelector,
+      textStartAt: 144,
+      textEndAt: 144 + 29,
+      textContent: "pointer is located inside the",
       color: "green",
     });
     hlarr.insertOneHighlight(hl, cbk);
   }
 
   function encounterOverlap(cbk = null) {
-    hlarr = new HighlightArray([hl]);
+    hlarr = new HighlightSeq([hl]);
     hl = new HighlightInfo({
       id: null,
-      startNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 1,
-      },
-      endNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 3,
-      },
-      startOffset: 110,
-      endOffSet: 8,
-      color: "green",
+      parentSelector: parentSelector,
+      textStartAt: 144,
+      textEndAt: 144 + 29,
+      textContent: "pointer is located inside the",
+      color: "blue",
     });
     hlarr.insertOneHighlight(hl, null);
     hl = new HighlightInfo({
       id: null,
-      startNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)>span:nth-child(1)>code",
-        textIndex: 0,
-      },
-      endNodePath: {
-        selectorPath: ".box .test-origin p:nth-child(1)",
-        textIndex: 1,
-      },
-      startOffset: 3,
-      endOffSet: 29,
+      parentSelector: parentSelector,
+      textStartAt: 27,
+      textEndAt: 112,
+      textContent:
+        " event when a pointing device button (such as a mouse's primary mouse button) is both",
       color: "red",
     });
     hlarr.insertOneHighlight(hl, cbk);
