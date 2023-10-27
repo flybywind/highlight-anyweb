@@ -3,7 +3,7 @@ import { HColor } from "../const/colors";
 import {
   textElement,
   getSelector,
-  getTextIndex,
+  getChildNodesIndex,
   alignElement2SameLevel,
   styleIt,
   unStyleIt,
@@ -74,11 +74,11 @@ export class HighlightInfo implements HLconfigure {
     ) {
       const startNodePath = {
           selectorPath: getSelector(startNode.parentElement),
-          textIndex: getTextIndex(startNode),
+          textIndex: getChildNodesIndex(startNode),
         },
         endNodePath = {
           selectorPath: getSelector(endNode.parentElement),
-          textIndex: getTextIndex(endNode),
+          textIndex: getChildNodesIndex(endNode),
         };
       const startOffset = range.startOffset,
         endOffset = range.endOffset;
@@ -98,12 +98,36 @@ export class HighlightInfo implements HLconfigure {
     }
   }
   static isHighlightingElem(ele: Element): boolean {
-    return ele.getAttribute(HighLightAttr) !== null;
+    return HighlightInfo.getHighlightingID(ele) !== null;
   }
   static getHighlightingID(ele: Element): string {
-    return ele.getAttribute(HighLightAttr);
+    if (ele == null) return null;
+    if (ele.nodeName === MarkElement) {
+      return ele.getAttribute(HighLightAttr);
+    }
+    const parentElem = HighlightInfo.getHighlightingElem(ele);
+    if (parentElem !== null) {
+      return parentElem.getAttribute(HighLightAttr);
+    }
+    return null;
   }
-
+  static getHighlightingElem(ele: Element): Element {
+    if (ele == null) return null;
+    while (
+      ele.nodeName !== "DIV" &&
+      ele.nodeName !== "MAIN" &&
+      ele.nodeName !== "BODY"
+    ) {
+      if (ele.nodeName === MarkElement) {
+        const id = ele.getAttribute(HighLightAttr);
+        if (id != null) {
+          return ele;
+        }
+      }
+      ele = ele.parentElement;
+    }
+    return null;
+  }
   storeAsConfig(): HLconfigure {
     return {
       id: this.id,
@@ -154,8 +178,31 @@ export class HighlightInfo implements HLconfigure {
     return null;
   }
 
+  /**
+   * clip the selected content and wrap them with the highlight marker
+   * @param range the range can't span across multiple paragraphs. Or there will be too many edge cases to handle.
+   * @returns the newly inserted element
+   */
   createHighlightElem(range: Range): HTMLElement {
     const resultNode = document.createElement(MarkElement);
+    // exclude the overlapped part from the previous marker
+    const startParent = range.startContainer.parentElement;
+    const spElem = HighlightInfo.getHighlightingElem(startParent);
+    if (spElem !== null) {
+      const prevId = HighlightInfo.getHighlightingID(spElem);
+      const endParent = range.endContainer.parentElement;
+      const epElem = HighlightInfo.getHighlightingElem(endParent);
+      if (prevId === HighlightInfo.getHighlightingID(epElem)) {
+        window.alert("can't make highlights inside an already existing one");
+        return null;
+      }
+      const startNodeAfter = spElem.nextSibling;
+      this.startNodePath = {
+        selectorPath: getSelector(startNodeAfter.parentElement),
+        textIndex: getChildNodesIndex(startNodeAfter),
+      };
+      range.setStart(startNodeAfter, 0);
+    }
     //TODO: split range content into multiple element if it span across multiple paragraph
     resultNode.appendChild(range.extractContents());
     const newStyle = { cursor: "pointer", "background-color": this.color };
@@ -191,7 +238,6 @@ const MarkElement = "SPAN";
 export type HighlightOrderedMap = OrderedMap<string, HighlightInfo>;
 export class HighlightArray {
   highlights: HighlightOrderedMap;
-  // htmlMap: Map<HighlightID, HTMLElement[]>;
 
   // construct the Highlight array once a new tab was loaded
   constructor(hls: HighlightInfo[]) {
@@ -208,123 +254,43 @@ export class HighlightArray {
    */
   insertOneHighlight(
     hlconf: HLconfigure,
-    callback: (hls: HighlightOrderedMap) => void
+    callback: (hls: HighlightOrderedMap) => void = null
   ) {
     //TODO if select multiple paragraghs, we should returne a list of range.
     // use splitRangePerElement first and then loop the highlights array
     const hl = new HighlightInfo(hlconf);
     const range = hl.createRange();
     const newEle = hl.createHighlightElem(range);
-    this.cleanHighlightsEmbeding(newEle);
+    this._cleanHighlightsEmbeding(newEle);
     // this.highlights = makersNew; // order ??
-    const allNextSiblings = new Array<HighlightInfo>();
-    for (
-      let nextSibOfsameParent = newEle.nextSibling;
-      nextSibOfsameParent != null;
-      nextSibOfsameParent = nextSibOfsameParent.nextSibling
-    ) {
-      if (nextSibOfsameParent.nodeType == Node.ELEMENT_NODE) {
-        const sibHl = loopFindSibHighlight(
-          nextSibOfsameParent as HTMLElement,
-          this.highlights
-        );
-        allNextSiblings.push(...sibHl);
-      }
-    }
+    const allNextSiblings = this._findNextSiblings(newEle);
     this.highlights.append(hl);
     if (allNextSiblings.length > 0) {
       const firstSib = allNextSiblings[0];
       const idx = this.highlights.findIdx(firstSib.id);
       this.highlights.shiftUpward(this.highlights.size() - 1, idx);
-      // update the selector path of all the following siblings
-      allNextSiblings.forEach((h) => {
-        // query span.class_id element and merge the head or tail text node,
-        // re-caculate the path info
-        h.elementList.forEach((hlelem) => {
-          let prevSib = hlelem.previousSibling;
-          const startOffset = prevSib.textContent.length;
-          let startTextIndex = 0;
-          while (prevSib != null) {
-            startTextIndex++;
-            prevSib = prevSib.previousSibling;
-          }
-          h.startNodePath.textIndex = startTextIndex - 1;
-          h.startOffset = startOffset;
-          h.endNodePath.textIndex =
-            startTextIndex + hlelem.childNodes.length - 2;
-        });
-      });
+      this._updateNextSiblings(allNextSiblings);
     }
     if (callback != null) {
       callback(this.highlights);
     }
-    // auxilary functions:
-    function loopFindSibHighlight(
-      n: HTMLElement,
-      hls: HighlightOrderedMap
-    ): HighlightInfo[] {
-      const ret = new Array<HighlightInfo>();
-      if (HighlightInfo.isHighlightingElem(n)) {
-        const h = hls.find(HighlightInfo.getHighlightingID(n));
-        // if n itself is a highlighted item, then we can happily return, cause the embedding highlights have been removed
-        return [h];
-      }
-      for (let i = 0; i < n.childNodes.length; i++) {
-        const c = n.childNodes[i];
-        if (c.nodeType == Node.ELEMENT_NODE) {
-          const e = c as HTMLElement;
-          const h = hls.find(HighlightInfo.getHighlightingID(e));
-          if (h !== undefined) {
-            ret.push(h);
-          } else {
-            const next = loopFindSibHighlight(e, hls);
-            if (next.length > 0) {
-              ret.push(...next);
-            }
-          }
-        }
-      }
-      return ret;
+  }
+
+  deleteOneHighlight(
+    ele: HTMLElement,
+    callback: (h: HighlightOrderedMap) => void = null
+  ) {
+    const id = HighlightInfo.getHighlightingID(ele);
+    this.highlights.removeByKey(id);
+    unStyleIt(ele);
+    const allNextSiblings = this._findNextSiblings(ele);
+    // update the selector path of all the following siblings
+    this._updateNextSiblings(allNextSiblings);
+
+    if (callback != null) {
+      callback(this.highlights);
     }
   }
-
-  /**
-   * clean the highlighting elements embedding inside the current element
-   * @param elem the highlighting element
-   */
-  cleanHighlightsEmbeding(elem: HTMLElement) {
-    const ids: string[] = [null, null];
-    [elem.previousElementSibling, elem.nextElementSibling].forEach((s, i) => {
-      if (s != null && HighlightInfo.isHighlightingElem(s)) {
-        ids[i] = HighlightInfo.getHighlightingID(s);
-      }
-    });
-    // remove the highlight elements caused by splitting the ones in front or end
-    const validNodes = new Array<Node>();
-    const removeIds = new Set<string>();
-    elem.childNodes.forEach((c, i) => {
-      if (c.nodeName == MarkElement) {
-        const e = c as HTMLElement;
-        if (
-          (i == 0 && ids[0] == HighlightInfo.getHighlightingID(e)) ||
-          (i == c.childNodes.length - 1 &&
-            ids[1] == HighlightInfo.getHighlightingID(e))
-        ) {
-          c.childNodes.forEach((n) => validNodes.push(n));
-          return;
-        } else if (HighlightInfo.isHighlightingElem(e)) {
-          c.childNodes.forEach((n) => validNodes.push(n));
-          removeIds.add(HighlightInfo.getHighlightingID(e));
-          return;
-        }
-      }
-      validNodes.push(c);
-    });
-    elem.replaceChildren(...validNodes);
-    removeIds.forEach((id) => this.highlights.removeByKey(id));
-  }
-
-  // deleteOneHighlight(id: HighlightID) {}
 
   // renderOne(id: HighlightID) {}
 
@@ -336,4 +302,98 @@ export class HighlightArray {
   //     urlHighlightsStorage.set(hlMap);
   //   });
   // }
+  // auxilary functions:
+  private _findNextSiblings(targetEle: HTMLElement) {
+    const allNextSiblings = new Array<HighlightInfo>();
+    for (
+      let nextSibOfsameParent = targetEle.nextSibling;
+      nextSibOfsameParent != null;
+      nextSibOfsameParent = nextSibOfsameParent.nextSibling
+    ) {
+      if (nextSibOfsameParent.nodeType == Node.ELEMENT_NODE) {
+        const sibHl = this._loopFindSibHighlight(
+          nextSibOfsameParent as HTMLElement
+        );
+        allNextSiblings.push(...sibHl);
+      }
+    }
+    return allNextSiblings;
+  }
+  private _loopFindSibHighlight(n: HTMLElement): HighlightInfo[] {
+    const ret = new Array<HighlightInfo>();
+    if (HighlightInfo.isHighlightingElem(n)) {
+      const h = this.highlights.find(HighlightInfo.getHighlightingID(n));
+      // if n itself is a highlighted item, then we can happily return, cause the embedding highlights have been removed
+      return [h];
+    }
+    for (let i = 0; i < n.childNodes.length; i++) {
+      const c = n.childNodes[i];
+      if (c.nodeType == Node.ELEMENT_NODE) {
+        const e = c as HTMLElement;
+        const h = this.highlights.find(HighlightInfo.getHighlightingID(e));
+        if (h !== undefined) {
+          ret.push(h);
+        } else {
+          const next = this._loopFindSibHighlight(e);
+          if (next.length > 0) {
+            ret.push(...next);
+          }
+        }
+      }
+    }
+    return ret;
+  }
+  private _updateNextSiblings(allNextSiblings: HighlightInfo[]) {
+    // update the selector path of all the following siblings
+    allNextSiblings.forEach((h) => {
+      // query span.class_id element and merge the head or tail text node,
+      // re-caculate the path info
+      h.elementList.forEach((hlelem) => {
+        let prevSib = hlelem.previousSibling;
+        const startOffset = prevSib.textContent.length;
+        let startTextIndex = 0;
+        while (prevSib != null) {
+          startTextIndex++;
+          prevSib = prevSib.previousSibling;
+        }
+        h.startNodePath.textIndex = startTextIndex - 1;
+        h.startOffset = startOffset;
+        h.endNodePath.textIndex = startTextIndex + hlelem.childNodes.length - 2;
+      });
+    });
+  }
+  /**
+   * clean the highlighting elements embedding inside the current element
+   * @param elem the highlighting element
+   */
+  private _cleanHighlightsEmbeding(elem: HTMLElement) {
+    // only consider the following contents, as we will make sure the selectio will not overwrite the previous marker
+    const nextMarkerId = HighlightInfo.getHighlightingID(
+      elem.nextElementSibling
+    );
+    // remove the highlight elements caused by splitting the ones in front or end
+    const validNodes = new Array<Node>();
+    const removeIds = new Set<string>();
+    elem.childNodes.forEach((c, i) => {
+      if (c.nodeName == MarkElement) {
+        const e = c as HTMLElement;
+        if (
+          i == c.childNodes.length - 1 &&
+          nextMarkerId != null &&
+          nextMarkerId == HighlightInfo.getHighlightingID(e)
+        ) {
+          c.childNodes.forEach((n) => validNodes.push(n));
+          return;
+        } else if (HighlightInfo.isHighlightingElem(e)) {
+          // remove middle markers
+          c.childNodes.forEach((n) => validNodes.push(n));
+          removeIds.add(HighlightInfo.getHighlightingID(e));
+          return;
+        }
+      }
+      validNodes.push(c);
+    });
+    elem.replaceChildren(...validNodes);
+    removeIds.forEach((id) => this.highlights.removeByKey(id));
+  }
 }

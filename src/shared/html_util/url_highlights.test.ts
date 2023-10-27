@@ -96,7 +96,7 @@ describe("fundamental test", () => {
   });
 });
 
-describe("insert selections", () => {
+describe("highlights operation", () => {
   let parentElem: HTMLElement, hl: HighlightInfo, hlarr: HighlightArray;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -160,17 +160,12 @@ describe("insert selections", () => {
       const firstElem = hls.at(0).elementList[0];
       expect(firstElem.parentElement).toBe(parentElem);
       expect(HighlightInfo.getHighlightingID(firstElem)).eq("id1");
-      expect(firstElem.childNodes[firstElem.childNodes.length - 1].nodeName).eq(
-        "CODE"
+      expect(firstElem.innerHTML).eq(
+        "An element receives a <code>click</code> event"
       );
-      expect(
-        firstElem.childNodes[firstElem.childNodes.length - 1].textContent
-      ).eq("cli");
-
       const secondElem = hls.at(1).elementList[0];
       expect(secondElem.parentElement).eq(parentElem);
-      expect(secondElem.childNodes[0].nodeName).eq("CODE");
-      expect(secondElem.childNodes[0].textContent).eq("ck");
+      expect(secondElem.innerHTML).eq(" when a pointing device butto");
     });
   });
 
@@ -180,12 +175,35 @@ describe("insert selections", () => {
     const { document, Node } = mockDocument().window;
     global.document = document;
     global.Node = Node;
-    parentElem = document.querySelector(".box .test-origin p:nth-child(1)");
     const hlarr2 = new HighlightArray(
       hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
     );
     const hls = hlarr2.highlights;
     expect(hls.size()).eq(3);
+    expect(document.body.innerHTML).eq(lastInnerHtml);
+  });
+
+  test("> insert-delete-restore with overlap", () => {
+    encounterOverlap();
+    const ele = hlarr.highlights.at(1).elementList[0],
+      ele2 = hlarr.highlights.at(2);
+    const contentbefore = ele2.elementList[0].textContent;
+    hlarr.deleteOneHighlight(ele);
+    expect(hlarr.highlights.size()).eq(2);
+    expect(ele2).eq(hlarr.highlights.at(1));
+    const contentAfter = hlarr.highlights.at(1).elementList[0].textContent;
+    expect(contentbefore).eq(contentAfter);
+
+    // restore
+    const lastInnerHtml = global.document.body.innerHTML;
+    const { document, Node } = mockDocument().window;
+    global.document = document;
+    global.Node = Node;
+    const hlarr2 = new HighlightArray(
+      hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
+    );
+    const hls = hlarr2.highlights;
+    expect(hls.size()).eq(2);
     expect(document.body.innerHTML).eq(lastInnerHtml);
   });
 

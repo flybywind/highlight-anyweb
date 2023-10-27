@@ -47,6 +47,28 @@
       "args": ["run", "-t", "> restore after no overlap"],
       "smartStep": true,
       "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "test insert-delete-restore with overlap",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "program": "${workspaceRoot}/../node_modules/vitest/vitest.mjs",
+      "args": ["run", "-t", "> insert-delete-restore with overlap"],
+      "smartStep": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "test highlights operation",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "program": "${workspaceRoot}/../node_modules/vitest/vitest.mjs",
+      "args": ["run", "-t", "highlights operation"],
+      "smartStep": true,
+      "console": "integratedTerminal"
     }
   ]
 }

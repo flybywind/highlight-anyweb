@@ -34,7 +34,7 @@ export function getSelector(elm: HTMLElement) {
   return names.join(">");
 }
 
-export function getTextIndex(n: Node) {
+export function getChildNodesIndex(n: Node) {
   let idx = 0;
   for (; n.previousSibling; n = n.previousSibling, idx++);
   return idx;
