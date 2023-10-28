@@ -46,12 +46,16 @@ export class HighlightInfo {
     }
 
     if (this.range != null) {
-      const parentElem = this.range.commonAncestorContainer.parentElement;
+      let parentElem: HTMLElement = this.range.commonAncestorContainer;
+      if (parentElem.nodeType == Node.TEXT_NODE) {
+        parentElem = parentElem.parentElement;
+      }
       this.parentSelector = getSelector(parentElem);
       this.textContent = this.range.toString();
       this.textStartAt = 0;
       this.textEndAt = 0;
-      let meetStart = false;
+      let meetStart = false,
+        meetEnd = false;
       const [startNode, endNode] = [
         this.range.startContainer,
         this.range.endContainer,
@@ -63,19 +67,26 @@ export class HighlightInfo {
         throw new Error("can't highlight node of non-text type!");
       }
       forEachTextNode(parentElem, (c) => {
-        if (!meetStart && c !== startNode) {
-          this.textStartAt += c.textContent.length;
-        } else {
-          if (c === startNode) {
-            this.textStartAt += this.range.startOffset;
-            this.textEndAt = this.textStartAt;
-            meetStart = true;
+        if (!meetStart) {
+          if (c !== startNode) {
+            this.textStartAt += c.textContent.length;
           } else {
-            // meetStart == true
             if (c === endNode) {
-              this.textEndAt += this.range.endOffset;
+              meetEnd = true;
+              this.textEndAt = this.textStartAt + this.range.endOffset;
             } else {
+              this.textEndAt = this.textStartAt + c.textContent.length;
+            }
+            this.textStartAt += this.range.startOffset;
+            meetStart = true;
+          }
+        } else {
+          if (!meetEnd) {
+            if (c !== endNode) {
               this.textEndAt += c.textContent.length;
+            } else {
+              this.textEndAt += this.range.endOffset;
+              meetEnd = true;
             }
           }
         }
@@ -86,7 +97,7 @@ export class HighlightInfo {
       this.textContent.length == 0 ||
       this.textEndAt - this.textStartAt != this.textContent.length
     ) {
-      throw new Error("invalid highlight config: " + config);
+      throw new Error("invalid highlight config: " + JSON.stringify(this));
     }
   }
 
@@ -108,53 +119,58 @@ export class HighlightInfo {
    */
   createHighlightElem(): HTMLElement {
     let range: Range;
+    const rootElem = document.querySelector(this.parentSelector);
+    if (rootElem === null) {
+      throw new Error("no such element found: " + this.parentSelector);
+    }
     if (this.range != null) {
       // use the initialized range from construction, meaning it was created from user selection; Or it means it is gonna to be initialized from storage
       range = this.range;
     } else {
-      const rootElem = document.querySelector(this.parentSelector);
-      if (rootElem !== null) {
-        // construct range from start/end postion of the parent element
-        range = document.createRange();
-        let ti = 0;
-        let initStart = false,
-          initEnd = false;
-        forEachTextNode(rootElem, (n) => {
-          ti += n.textContent.length;
-          if (!initStart) {
-            if (ti >= this.textStartAt) {
-              initStart = true;
-              range.setStart(n, n.textContent.length - (ti - this.textStartAt));
-            }
-          } else {
-            if (!initEnd) {
-              if (ti >= this.textEndAt) {
-                range.setEnd(n, n.textContent.length - (ti - this.textEndAt));
-                initEnd = true;
-              }
+      // construct range from start/end postion of the parent element
+      range = document.createRange();
+      let ti = 0;
+      let initStart = false,
+        initEnd = false;
+      forEachTextNode(rootElem, (n) => {
+        ti += n.textContent.length;
+        if (!initStart) {
+          if (ti >= this.textStartAt) {
+            initStart = true;
+            range.setStart(n, n.textContent.length - (ti - this.textStartAt));
+          }
+        } else {
+          if (!initEnd) {
+            if (ti >= this.textEndAt) {
+              range.setEnd(n, n.textContent.length - (ti - this.textEndAt));
+              initEnd = true;
             }
           }
-        });
-      } else {
-        throw new Error("no such element found: " + this.parentSelector);
-      }
-      const resultNode = document.createElement(MarkElement);
-      resultNode.appendChild(range.extractContents());
-      const newStyle = { cursor: "pointer", "background-color": this.color };
-      styleIt(resultNode, newStyle);
-      resultNode.onclick = (ev: MouseEvent) => {
-        unStyleIt(resultNode);
-      };
-      range.insertNode(resultNode);
-      // remove empty textNode caused by the insertion
-      for (const s of [resultNode.previousSibling, resultNode.nextSibling]) {
-        if (textElement(s) && s.textContent.length == 0) {
-          rootElem.removeChild(s);
         }
-      }
-      resultNode.setAttribute(HighLightIDAttr, this.id);
-      return resultNode;
+      });
     }
+
+    const resultNode = document.createElement(MarkElement);
+    resultNode.appendChild(range.extractContents());
+    const newStyle = { cursor: "pointer", "background-color": this.color };
+    styleIt(resultNode, newStyle);
+    resultNode.onclick = (ev: MouseEvent) => {
+      unStyleIt(resultNode);
+    };
+    range.insertNode(resultNode);
+    // remove empty textNode caused by the insertion
+    for (const s of [resultNode.previousSibling, resultNode.nextSibling]) {
+      if (textElement(s) && s.textContent.length == 0) {
+        rootElem.removeChild(s);
+      }
+    }
+    for (const s of [resultNode.firstChild, resultNode.lastChild]) {
+      if (textElement(s) && s.textContent.length == 0) {
+        resultNode.removeChild(s);
+      }
+    }
+    resultNode.setAttribute(HighLightIDAttr, this.id);
+    return resultNode;
   }
 }
 

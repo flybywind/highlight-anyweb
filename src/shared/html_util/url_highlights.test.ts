@@ -7,6 +7,8 @@ import {
   Tool,
   HighLightOriginColorAttr,
 } from "./url_highlights";
+
+import * as util from "./util";
 const mockDocument = () =>
   new JSDOM(`
 <!DOCTYPE html>
@@ -30,13 +32,21 @@ describe("fundamental test", () => {
     const { document, Node } = mockDocument().window;
     global.document = document;
     global.Node = Node;
-    console.log("setup document");
+    const originFn = util.getSelector;
+    vi.spyOn(util, "getSelector").mockImplementation((e) => {
+      const r = originFn(e);
+      return r.toLowerCase();
+    });
   });
   test("dom mock", () => {
     console.log("run test");
     const ele = document.querySelector(".box .test-origin");
     expect(ele).not.eq(null);
     expect(ele.childElementCount).eq(2);
+  });
+  test("func mock", () => {
+    const e = document.querySelector(".test-origin") as HTMLElement;
+    expect(util.getSelector(e)).eq("div:nth-child(2)>div:nth-child(1)");
   });
   test("check jsdom uppercase nodeName", () => {
     const mockDocument = new JSDOM(`
@@ -67,6 +77,12 @@ describe("highlights operation", () => {
     parentSelector: string;
   beforeEach(() => {
     vi.clearAllMocks();
+    const originFn = util.getSelector;
+    vi.spyOn(util, "getSelector").mockImplementation((e) => {
+      const r = originFn(e);
+      return r.toLowerCase();
+    });
+
     const { document, Node } = mockDocument().window;
     global.document = document;
     global.Node = Node;
@@ -103,7 +119,37 @@ describe("highlights operation", () => {
       }
     });
   });
-
+  test("> create highlight with range", () => {
+    hlarr = new HighlightSeq([hl]);
+    let range = document.createRange();
+    let startNode = parentElem.childNodes[1],
+      endNode = parentElem.childNodes[3];
+    range.setStart(startNode, 111);
+    range.setEnd(endNode, 4);
+    hl = new HighlightInfo({
+      id: null,
+      range: range,
+      color: "green",
+    });
+    hlarr.insertOneHighlight(hl, (hls) => {
+      expect(hls.size()).eq(2);
+      expect(hls.at(1).textContent).eq("pointer is located inside the");
+    });
+    range = document.createRange();
+    startNode = parentElem.childNodes[1];
+    endNode = parentElem.childNodes[1];
+    range.setStart(startNode, 5);
+    range.setEnd(endNode, 23);
+    hl = new HighlightInfo({
+      id: null,
+      range: range,
+      color: "orange",
+    });
+    hlarr.insertOneHighlight(hl, (hls) => {
+      expect(hls.size()).eq(3);
+      expect(hls.at(2).textContent).eq(" a pointing device");
+    });
+  });
   test("> restore after no overlap", () => {
     noOverLap();
     const { document, Node } = mockDocument().window;

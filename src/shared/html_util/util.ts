@@ -18,7 +18,7 @@ export function textElement(e: Node): boolean {
 }
 
 export function getSelector(elm: HTMLElement) {
-  if (elm.tagName === "BODY") return "body";
+  if (elm.tagName === "BODY") return "BODY";
   const names: string[] = [];
   while (elm.parentElement && elm.tagName !== "BODY") {
     if (elm.id) {
@@ -28,7 +28,7 @@ export function getSelector(elm: HTMLElement) {
       let c = 1,
         e: Element = elm;
       for (; e.previousElementSibling; e = e.previousElementSibling, c++);
-      names.unshift(elm.tagName.toLowerCase() + ":nth-child(" + c + ")");
+      names.unshift(elm.tagName + ":nth-child(" + c + ")");
     }
     elm = elm.parentElement;
   }

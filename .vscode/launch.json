@@ -29,6 +29,17 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "test create highlight with range",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "program": "${workspaceRoot}/../node_modules/vitest/vitest.mjs",
+      "args": ["run", "-t", "> create highlight with range"],
+      "smartStep": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "test encounter overlap",
       "autoAttachChildProcesses": true,
       "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
