@@ -1,6 +1,7 @@
 import { vi, beforeEach, test, expect, describe } from "vitest";
 import { JSDOM } from "jsdom";
 import { forEachTextNode } from "./util";
+import { Tool } from "./url_highlights";
 
 const mockDocument = () =>
   new JSDOM(`
@@ -14,6 +15,16 @@ const mockDocument = () =>
         <p>An element receives a <code>click</code> event when a pointing device button (such as a <a href='#'>mouse's primary <i>mouse button</i></a>) is both pressed and released while the pointer is <strong>located inside</strong> the element.</p>
         <p>If the <a href="#">button is <span>pressed</span></a> on one element and the pointer is moved outside the element before the button is released, the event is fired on the most specific ancestor element that</p>
       </div>
+      <div class="test-origin-3p">
+        <p>An element receives a <code>click</code> event when a pointing device button (such as a <a href='#'>mouse's primary <i>mouse button</i></a>) is both pressed and released while the pointer is <strong>located inside</strong> the element.</p>
+        <p>If the <a href="#">button is <span>pressed</span></a> on one element and the pointer is moved outside the element before the button is released, the event is fired on the most specific ancestor element that</p>
+        <p>If the <a href="#">button is <span>pressed</span></a> on one element and the pointer is moved outside the element before the button is released, the event is fired on the most specific ancestor element that</p>
+      </div>
+    </div>
+    <div class="box2">
+        <div class="test-origin">
+            <p>An element receives a <code>click</code> event when a pointing device button (such as a <a href='#'>mouse's primary <i>mouse button</i></a>) is both pressed and released while the pointer is <strong>located inside</strong> the element.</p>
+        </div>
     </div>
   </body>
 </html>
@@ -21,7 +32,8 @@ const mockDocument = () =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-  const { document, Node } = mockDocument().window;
+  const { document, Node, window } = mockDocument().window;
+  global.window = window;
   global.document = document;
   global.Node = Node;
 });
@@ -51,4 +63,74 @@ test("foreach text node", () => {
     "An element receives a click event when a pointing device button (such as a mouse's primary mouse button) is both pressed and released while the pointer is located inside the element.";
   expect(extractStr.length).deep.eq(expectPureText.length);
   expect(extractStr).deep.eq(expectPureText);
+});
+
+test("createHLConfWRange -- end at last element", () => {
+  const para = document.querySelector(".test-origin>p:nth-child(1)");
+  const para1 = document.querySelector(".test-origin>p:nth-child(2)>a>span");
+  const range = document.createRange();
+  range.setStart(para.childNodes[0], 3);
+  range.setEnd(para1.childNodes[0], 4);
+
+  const rangeArr = Tool.createHLConfWRange(range, {
+    color: "red",
+    category: "abc",
+  });
+
+  expect(rangeArr.length).eq(2);
+  expect(rangeArr[0].textStartAt).eq(3);
+  expect(rangeArr[0].textContent).eq(
+    "element receives a click event when a pointing device button (such as a mouse's primary mouse button) is both pressed and released while the pointer is located inside the element."
+  );
+  expect(rangeArr[0].textEndAt).eq(182);
+
+  expect(rangeArr[1].textStartAt).eq(0);
+  expect(rangeArr[1].textContent).eq("If the button is pres");
+  expect(rangeArr[1].textEndAt).eq(21);
+});
+
+test("createHLConfWRange -- end at 2nd last element", () => {
+  const para = document.querySelector(".test-origin-3p>p:nth-child(1)");
+  const para1 = document.querySelector(".test-origin-3p>p:nth-child(2)>a>span");
+  const range = document.createRange();
+  range.setStart(para.childNodes[0], 3);
+  range.setEnd(para1.childNodes[0], 4);
+
+  const rangeArr = Tool.createHLConfWRange(range, {
+    color: "red",
+    category: "abc",
+  });
+
+  expect(rangeArr.length).eq(2);
+  expect(rangeArr[0].textStartAt).eq(3);
+  expect(rangeArr[0].textEndAt).eq(13);
+  expect(rangeArr[0].textContent).eq(
+    "element receives a click event when a pointing device button (such as a mouse's primary mouse button) is both pressed and released while the pointer is located inside the element."
+  );
+  expect(rangeArr[1].textStartAt).eq(0);
+  expect(rangeArr[1].textEndAt).eq(24);
+  expect(rangeArr[1].textContent).eq("If the button is pressed");
+});
+
+test("createHLConfWRange -- cross multiple layer of div", () => {
+  const para = document.querySelector(".test-origin-3p>p:nth-child(3)>a>span");
+  const para1 = document.querySelector(".box2 .test-origin->p:nth-child(1)");
+  const range = document.createRange();
+  range.setStart(para.childNodes[0], 4);
+  range.setEnd(para1.childNodes[2], 6);
+
+  const rangeArr = Tool.createHLConfWRange(range, {
+    color: "red",
+    category: "abc",
+  });
+
+  expect(rangeArr.length).eq(2);
+  expect(rangeArr[0].textStartAt).eq(3);
+  expect(rangeArr[0].textEndAt).eq(13);
+  expect(rangeArr[0].textContent).eq(
+    "element receives a click event when a pointing device button (such as a mouse's primary mouse button) is both pressed and released while the pointer is located inside the element."
+  );
+  expect(rangeArr[1].textStartAt).eq(0);
+  expect(rangeArr[1].textEndAt).eq(24);
+  expect(rangeArr[1].textContent).eq("If the button is pressed");
 });

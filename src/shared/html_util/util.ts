@@ -1,3 +1,5 @@
+import assert from "assert";
+
 /**
  *
  * @param e Node
@@ -16,7 +18,47 @@ export function textElement(e: Node): boolean {
   }
   return true;
 }
+export function firstBlockParent(ele: Element) {
+  const style = window.getComputedStyle(ele);
+  if (style.display == "block") {
+    return ele as HTMLElement;
+  }
+  return firstBlockParent(ele.parentElement);
+}
+export function loopTextNodeInRange(range: Range, callback: (n: Node) => void) {
+  let n = range.startContainer;
+  const endNode = range.endContainer;
 
+  // return true if encountering endNode
+  const dfs = (n: Node) => {
+    if (n.nodeType == Node.TEXT_NODE) {
+      callback(n);
+      return n === endNode;
+    } else {
+      for (let i = 0; i < n.childNodes.length; i++) {
+        const c = n.childNodes[i];
+        if (dfs(c)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+  while (n !== endNode) {
+    if (dfs(n)) return;
+    let n2 = n;
+    if (n2.nextSibling == null) {
+      n2 = firstBlockParent(n2.parentElement);
+      while (n2.nextSibling == null) {
+        n2 = n2.parentElement;
+      }
+      n = (n2 as HTMLElement).nextElementSibling.firstChild;
+    } else {
+      n = n2.nextSibling;
+    }
+  }
+  dfs(n);
+}
 export function getSelector(elm: HTMLElement) {
   if (elm.tagName === "BODY") return "BODY";
   const names: string[] = [];

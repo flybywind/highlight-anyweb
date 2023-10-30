@@ -7,6 +7,8 @@ import {
   styleIt,
   unStyleIt,
   forEachTextNode,
+  firstBlockParent,
+  loopTextNodeInRange,
 } from "./util";
 
 /**
@@ -15,7 +17,7 @@ import {
 
 interface HLconfigure {
   id?: string;
-  range?: Range | null;
+  // range?: Range | null;
   color?: HColor | string;
   category?: string | null;
   textContent?: string | null;
@@ -31,7 +33,7 @@ export const HighLightOriginColorAttr = "hlsoc";
 export class HighlightInfo {
   id: string;
   parentSelector: string;
-  range?: Range; // will only be initialized during construction
+  // range?: Range; // will only be initialized during construction
   color?: string;
   category?: string | null;
   textContent?: string;
@@ -45,53 +47,6 @@ export class HighlightInfo {
       this.id = `hl_${Math.random().toString().slice(2)}`;
     }
 
-    if (this.range != null) {
-      let parentElem: HTMLElement = this.range.commonAncestorContainer;
-      if (parentElem.nodeType == Node.TEXT_NODE) {
-        parentElem = parentElem.parentElement;
-      }
-      this.parentSelector = getSelector(parentElem);
-      this.textContent = this.range.toString();
-      this.textStartAt = 0;
-      this.textEndAt = 0;
-      let meetStart = false,
-        meetEnd = false;
-      const [startNode, endNode] = [
-        this.range.startContainer,
-        this.range.endContainer,
-      ];
-      if (
-        startNode.nodeType !== Node.TEXT_NODE ||
-        endNode.nodeType !== Node.TEXT_NODE
-      ) {
-        throw new Error("can't highlight node of non-text type!");
-      }
-      forEachTextNode(parentElem, (c) => {
-        if (!meetStart) {
-          if (c !== startNode) {
-            this.textStartAt += c.textContent.length;
-          } else {
-            if (c === endNode) {
-              meetEnd = true;
-              this.textEndAt = this.textStartAt + this.range.endOffset;
-            } else {
-              this.textEndAt = this.textStartAt + c.textContent.length;
-            }
-            this.textStartAt += this.range.startOffset;
-            meetStart = true;
-          }
-        } else {
-          if (!meetEnd) {
-            if (c !== endNode) {
-              this.textEndAt += c.textContent.length;
-            } else {
-              this.textEndAt += this.range.endOffset;
-              meetEnd = true;
-            }
-          }
-        }
-      });
-    }
     if (
       this.parentSelector == null ||
       this.textContent.length == 0 ||
@@ -222,6 +177,48 @@ export class Tool {
       ele.style["background-color"] = color;
     }
   }
+
+  static createHLConfWRange(
+    range: Range,
+    template: HLconfigure
+  ): HLconfigure[] {
+    assert(
+      template.textStartAt === undefined,
+      "template can only specify color / category "
+    );
+    const ret: HLconfigure[] = [];
+    let parentElem: HTMLElement = null;
+    let curConf: HLconfigure = {};
+    let lastNode: Node = null;
+    let textContent: string[] = [];
+    let startOffset = -1,
+      endOffset = -1;
+    loopTextNodeInRange(range, (n) => {
+      const p2 = firstBlockParent(n.parentElement);
+      startOffset = n === range.startContainer ? range.startOffset : 0;
+      endOffset =
+        n === range.endContainer ? range.endOffset : n.textContent.length;
+      if (parentElem === null || parentElem !== p2) {
+        // find a new block
+        if (curConf.textStartAt !== undefined && lastNode !== null) {
+          curConf.textContent = textContent.join("");
+          curConf.textEndAt = curConf.textStartAt + curConf.textContent.length;
+          ret.push(curConf);
+        }
+        curConf = Object.assign({}, template);
+        textContent = [];
+        curConf.textStartAt = startOffset;
+        parentElem = p2;
+      }
+      lastNode = n;
+      textContent.push(n.textContent.slice(startOffset, endOffset));
+    });
+    // process the last part
+    curConf.textContent = textContent.join("");
+    curConf.textEndAt = curConf.textStartAt + curConf.textContent.length;
+    ret.push(curConf);
+    return ret;
+  }
 }
 // still prefer to use array to store the highlightinfo, as we need the correct insertion order to render them in the right place
 //
@@ -233,6 +230,7 @@ export type HighlightOrderedMap = OrderedMap<string, HighlightInfo>;
  * maintain the highlight operation sequence and the resulted innerHTML mapping to each operation
  */
 export class HighlightSeq {
+  private hl_htmlele: Map<string, HTMLElement[]>;
   highlights: HighlightOrderedMap;
   // construct the Highlight array once a new tab was loaded
   constructor(hls: HighlightInfo[]) {
@@ -256,7 +254,7 @@ export class HighlightSeq {
     const hl = new HighlightInfo(hlconf);
     this.highlights.append(hl);
     const newEle = hl.createHighlightElem();
-    this._updateBackgroundColorOfEmbeded(newEle.childNodes);
+    this._updateSiblingHle(newEle.childNodes);
     if (callback != null) {
       callback(this.highlights);
     }
@@ -276,7 +274,7 @@ export class HighlightSeq {
     }
     this.highlights.removeByKey(id);
     const newChildNodes = unStyleIt(ele);
-    this._updateBackgroundColorOfEmbeded(newChildNodes);
+    this._updateSiblingHle(newChildNodes);
     if (callback != null) {
       callback(this.highlights);
     }
@@ -306,15 +304,27 @@ export class HighlightSeq {
 
   // auxilary functions:
   /**
-   * update the background color of the highlighting elements embedding inside the current element
+   * update sibling highlight elements, like the background color of the highlighting elements embedding inside the current element and the segments array
    * @param elem the highlighting element
    */
-  private _updateBackgroundColorOfEmbeded(childNodes) {
+  private _updateSiblingHle(childNodes) {
     childNodes.forEach((c) => {
       if (c.nodeType == Node.ELEMENT_NODE) {
         const e = c as HTMLElement;
         if (Tool.isHighlightingElem(e)) {
           Tool.setBackgroundColor(e);
+          const htmlArr = this.hl_htmlele.get(Tool.getHighlightingID(e));
+          const idxs = [];
+          htmlArr.forEach((h, i) => {
+            if (h === e) {
+              idxs.push(i);
+            }
+          });
+          if (idxs.length == 0) {
+            htmlArr.push(e);
+          } else if (idxs.length >= 2) {
+            idxs.slice(1).forEach((i) => htmlArr.splice(i, 1));
+          }
         }
       }
     });
