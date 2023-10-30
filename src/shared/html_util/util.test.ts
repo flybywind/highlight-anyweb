@@ -83,10 +83,12 @@ test("createHLConfWRange -- end at last element", () => {
     "element receives a click event when a pointing device button (such as a mouse's primary mouse button) is both pressed and released while the pointer is located inside the element."
   );
   expect(rangeArr[0].textEndAt).eq(182);
+  expect(rangeArr[0].category).eq("abc");
 
   expect(rangeArr[1].textStartAt).eq(0);
   expect(rangeArr[1].textContent).eq("If the button is pres");
   expect(rangeArr[1].textEndAt).eq(21);
+  expect(rangeArr[1].category).eq("abc");
 });
 
 test("createHLConfWRange -- end at 2nd last element", () => {
@@ -103,18 +105,19 @@ test("createHLConfWRange -- end at 2nd last element", () => {
 
   expect(rangeArr.length).eq(2);
   expect(rangeArr[0].textStartAt).eq(3);
-  expect(rangeArr[0].textEndAt).eq(13);
   expect(rangeArr[0].textContent).eq(
     "element receives a click event when a pointing device button (such as a mouse's primary mouse button) is both pressed and released while the pointer is located inside the element."
   );
+  expect(rangeArr[0].textEndAt).eq(182);
+
   expect(rangeArr[1].textStartAt).eq(0);
-  expect(rangeArr[1].textEndAt).eq(24);
-  expect(rangeArr[1].textContent).eq("If the button is pressed");
+  expect(rangeArr[1].textContent).eq("If the button is pres");
+  expect(rangeArr[1].textEndAt).eq(21);
 });
 
 test("createHLConfWRange -- cross multiple layer of div", () => {
   const para = document.querySelector(".test-origin-3p>p:nth-child(3)>a>span");
-  const para1 = document.querySelector(".box2 .test-origin->p:nth-child(1)");
+  const para1 = document.querySelector(".box2 .test-origin>p:nth-child(1)");
   const range = document.createRange();
   range.setStart(para.childNodes[0], 4);
   range.setEnd(para1.childNodes[2], 6);
@@ -125,12 +128,12 @@ test("createHLConfWRange -- cross multiple layer of div", () => {
   });
 
   expect(rangeArr.length).eq(2);
-  expect(rangeArr[0].textStartAt).eq(3);
-  expect(rangeArr[0].textEndAt).eq(13);
+  expect(rangeArr[0].textStartAt).eq(4);
+  expect(rangeArr[0].textEndAt).eq(160);
   expect(rangeArr[0].textContent).eq(
-    "element receives a click event when a pointing device button (such as a mouse's primary mouse button) is both pressed and released while the pointer is located inside the element."
+    "sed on one element and the pointer is moved outside the element before the button is released, the event is fired on the most specific ancestor element that"
   );
   expect(rangeArr[1].textStartAt).eq(0);
-  expect(rangeArr[1].textEndAt).eq(24);
-  expect(rangeArr[1].textContent).eq("If the button is pressed");
+  expect(rangeArr[1].textEndAt).eq(33);
+  expect(rangeArr[1].textContent).eq("An element receives a click event");
 });

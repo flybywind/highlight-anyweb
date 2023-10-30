@@ -46,15 +46,24 @@ export function loopTextNodeInRange(range: Range, callback: (n: Node) => void) {
   };
   while (n !== endNode) {
     if (dfs(n)) return;
-    let n2 = n;
-    if (n2.nextSibling == null) {
-      n2 = firstBlockParent(n2.parentElement);
-      while (n2.nextSibling == null) {
-        n2 = n2.parentElement;
+    if (n.nextSibling == null) {
+      // search inside the same block element first
+      let n1 = n.parentElement;
+      let n2 = firstBlockParent(n.parentElement);
+      while (n1.nextSibling == null && n1 !== n2) {
+        n1 = n1.parentElement;
       }
-      n = (n2 as HTMLElement).nextElementSibling.firstChild;
+      if (n1 === n2) {
+        // search across the block elements
+        while (n2.nextElementSibling == null) {
+          n2 = n2.parentElement;
+        }
+        n = n2.nextElementSibling.firstChild;
+      } else {
+        n = n1.nextSibling;
+      }
     } else {
-      n = n2.nextSibling;
+      n = n.nextSibling;
     }
   }
   dfs(n);

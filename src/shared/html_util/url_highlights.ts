@@ -202,8 +202,12 @@ export class Tool {
         // find a new block
         if (curConf.textStartAt !== undefined && lastNode !== null) {
           curConf.textContent = textContent.join("");
-          curConf.textEndAt = curConf.textStartAt + curConf.textContent.length;
-          ret.push(curConf);
+          if (curConf.textContent.replace(/\s/g, "").length > 0) {
+            curConf.textEndAt =
+              curConf.textStartAt + curConf.textContent.length;
+            curConf.parentSelector = getSelector(parentElem);
+            ret.push(curConf);
+          }
         }
         curConf = Object.assign({}, template);
         textContent = [];
@@ -215,8 +219,10 @@ export class Tool {
     });
     // process the last part
     curConf.textContent = textContent.join("");
-    curConf.textEndAt = curConf.textStartAt + curConf.textContent.length;
-    ret.push(curConf);
+    if (curConf.textContent.replace(/\s/g, "").length > 0) {
+      curConf.textEndAt = curConf.textStartAt + curConf.textContent.length;
+      ret.push(curConf);
+    }
     return ret;
   }
 }

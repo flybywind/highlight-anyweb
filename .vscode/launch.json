@@ -7,6 +7,17 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "createHLConfWRangeC3",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "program": "${workspaceRoot}/../node_modules/vitest/vitest.mjs",
+      "args": ["run", "-t", "createHLConfWRange -- cross multiple layer of di"],
+      "smartStep": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "createHLConfWRangeC1",
       "autoAttachChildProcesses": true,
       "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
