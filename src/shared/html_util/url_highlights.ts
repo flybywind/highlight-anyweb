@@ -150,17 +150,20 @@ export class Tool {
     }
     return null;
   }
-  static setBackgroundColor(ele: HTMLElement) {
+  static setBackgroundColor(ele: HTMLElement, color: string = null) {
     const oc = ele.getAttribute(HighLightOriginColorAttr);
     if (oc === null) {
       // the first time to change the background color
       const oc = ele.style.backgroundColor;
       ele.setAttribute(HighLightOriginColorAttr, oc);
     }
-    const parentElem = ele.parentElement;
-    let color = oc;
-    if (Tool.isHighlightingElem(parentElem)) {
-      color = parentElem.style.backgroundColor;
+    let parentElem = ele.parentElement;
+    if (color == null) {
+      color = oc;
+      while (Tool.isHighlightingElem(parentElem)) {
+        color = parentElem.style.backgroundColor;
+        parentElem = parentElem.parentElement;
+      }
     }
     if (color === oc && oc !== null) {
       ele.removeAttribute(HighLightOriginColorAttr);
@@ -268,7 +271,7 @@ export class HighlightSeq {
     this.highlights.append(hl);
     const newEle = hl.createHighlightElem();
     this.hl_htmlele.set(hl.id, [newEle]);
-    this._updateSiblingHle(newEle.childNodes);
+    this._updateSiblingHle(newEle.childNodes, hlconf.color);
     if (callback != null) {
       callback(this.highlights);
     }
@@ -301,31 +304,16 @@ export class HighlightSeq {
     this.highlights.removeByKey(id);
     this.hl_htmlele.get(id).forEach((ele) => {
       const newChildNodes = unStyleIt(ele);
-      this._updateSiblingHle(newChildNodes, true);
+      this._updateSiblingHle(newChildNodes);
     });
     if (callback != null) {
       callback(this.highlights);
     }
   }
 
-  // private queryHighlightElem(id: string): HTMLElement[] {
-  //   const hl = this.highlights.find(id);
-  //   const parentElem = document.querySelector(hl.parentSelector) as HTMLElement;
-  //   const ret = new Array<HTMLElement>();
-  //   const dfs = (parentElem: HTMLElement) => {
-  //     for (let i = 0; i < parentElem.childElementCount; i++) {
-  //       const e = parentElem.children[i] as HTMLElement;
-  //       if (Tool.getHighlightingID(e) === id) {
-  //         ret.push(e);
-  //         continue;
-  //       }
-  //       dfs(e);
-  //     }
-  //   };
-
-  //   dfs(parentElem);
-  //   return ret;
-  // }
+  queryHighlightElem(id: string): HTMLElement[] {
+    return this.hl_htmlele.get(id);
+  }
   // renderOne(id: HighlightID) {}
 
   // renderAll() {}
@@ -342,27 +330,26 @@ export class HighlightSeq {
    * update sibling highlight elements, like the background color of the highlighting elements embedding inside the current element and the segments array
    * @param elem the highlighting element
    */
-  private _updateSiblingHle(childNodes: Node[], onDelete = false) {
+  private _updateSiblingHle(childNodes: Node[], color: string = null) {
     childNodes.forEach((c) => {
       if (c.nodeType == Node.ELEMENT_NODE) {
         const e = c as HTMLElement;
         if (Tool.isHighlightingElem(e)) {
-          Tool.setBackgroundColor(e);
-          if (onDelete) {
-            const htmlArr = this.hl_htmlele.get(Tool.getHighlightingID(e));
-            const idxs = [];
-            htmlArr.forEach((h, i) => {
-              if (h === e) {
-                idxs.push(i);
-              }
-            });
-            if (idxs.length == 0) {
-              htmlArr.push(e);
-            } else if (idxs.length >= 2) {
-              idxs.slice(1).forEach((i) => htmlArr.splice(i, 1));
+          Tool.setBackgroundColor(e, color);
+          const htmlArr = this.hl_htmlele.get(Tool.getHighlightingID(e));
+          const idxs = [];
+          htmlArr.forEach((h, i) => {
+            if (h === e) {
+              idxs.push(i);
             }
+          });
+          if (idxs.length == 0) {
+            htmlArr.push(e);
+          } else if (idxs.length >= 2) {
+            idxs.slice(1).forEach((i) => htmlArr.splice(i, 1));
           }
         }
+        this._updateSiblingHle(e.childNodes, color);
       }
     });
   }

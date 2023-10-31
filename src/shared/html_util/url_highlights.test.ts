@@ -227,6 +227,94 @@ describe("highlights operation", () => {
 
   test("> insert-delete-restore with overlap", () => {
     encounterOverlap();
+    hl = new HighlightInfo({
+      id: null,
+      parentSelector: parentSelector,
+      textStartAt: 19,
+      textEndAt: 56,
+      textContent: " a click event when a pointing device",
+      color: "purple",
+    });
+    hlarr.insertOneHighlight(hl, null);
+    const id1Hl = hlarr.queryHighlightElem("id1");
+    const hl2 = hlarr.highlights.at(2);
+    const hl2ele = hlarr.queryHighlightElem(hl2.id);
+    expect(id1Hl.length).eq(3);
+    expect(id1Hl[0].style.backgroundColor).eq("green");
+    expect(id1Hl[1].style.backgroundColor).eq("purple");
+    expect(id1Hl[2].style.backgroundColor).eq("purple");
+
+    expect(hl2ele.length).eq(2);
+    expect(hl2ele[0].style.backgroundColor).eq("red");
+    expect(id1Hl[1].style.backgroundColor).eq("purple");
+    const contentbefore = parentElem.textContent;
+    const htmlBefore = parentElem.innerHTML;
+    const p0 = global.document.createElement(parentElem.nodeName);
+    p0.innerHTML = htmlBefore;
+
+    hlarr.deleteOneHighlight({ id: "id1" });
+    const lastWholeContent = global.document.body.textContent;
+
+    expect(hlarr.highlights.size()).eq(3);
+
+    const contentafter = parentElem.textContent;
+    const htmlAfter = parentElem.innerHTML;
+    const p1 = global.document.createElement(parentElem.nodeName);
+    p1.innerHTML = htmlAfter;
+    expect(contentafter).eq(contentbefore);
+    expect(p0.querySelectorAll("span").length).eq(7);
+    expect(p0.querySelectorAll("span>span").length).eq(3);
+    expect(p1.querySelectorAll("span").length).eq(4);
+    expect(p1.querySelectorAll("span>span").length).eq(1);
+
+    // restore
+    const { document, Node } = mockDocument().window;
+    global.document = document;
+    global.Node = Node;
+    const hlarr2 = new HighlightSeq(
+      hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
+    );
+    const hls = hlarr2.highlights;
+    expect(hls.size()).eq(3);
+    expect(document.body.textContent).eq(lastWholeContent);
+  });
+
+  test("> insert3-delete1-restore with overlap", () => {
+    encounterOverlap();
+    const contentbefore = parentElem.textContent;
+    const htmlBefore = parentElem.innerHTML;
+    const p0 = global.document.createElement(parentElem.nodeName);
+    p0.innerHTML = htmlBefore;
+
+    hlarr.deleteOneHighlight({ id: "id1" });
+    const lastWholeContent = global.document.body.textContent;
+
+    expect(hlarr.highlights.size()).eq(2);
+
+    const contentafter = parentElem.textContent;
+    const htmlAfter = parentElem.innerHTML;
+    const p1 = global.document.createElement(parentElem.nodeName);
+    p1.innerHTML = htmlAfter;
+    expect(contentafter).eq(contentbefore);
+    expect(p0.querySelectorAll("span").length).eq(4);
+    expect(p0.querySelectorAll("span>span").length).eq(1);
+    expect(p1.querySelectorAll("span").length).eq(2);
+    expect(p1.querySelectorAll("span>span").length).eq(0);
+
+    // restore
+    const { document, Node } = mockDocument().window;
+    global.document = document;
+    global.Node = Node;
+    const hlarr2 = new HighlightSeq(
+      hlarr.highlights.map((h) => new HighlightInfo(h.storeAsConfig()))
+    );
+    const hls = hlarr2.highlights;
+    expect(hls.size()).eq(2);
+    expect(document.body.textContent).eq(lastWholeContent);
+  });
+
+  test("> insert-delete3-restore with overlap", () => {
+    encounterOverlap();
     const ele = hlarr.highlights.at(2);
     const contentbefore = parentElem.textContent;
     const htmlBefore = parentElem.innerHTML;
@@ -242,7 +330,6 @@ describe("highlights operation", () => {
     const htmlAfter = parentElem.innerHTML;
     const p1 = global.document.createElement(parentElem.nodeName);
     p1.innerHTML = htmlAfter;
-    console.log("inner html after delete:\n", htmlAfter);
     expect(contentafter).eq(contentbefore);
     expect(p0.querySelectorAll("span").length).eq(4);
     expect(p0.querySelectorAll("span>span").length).eq(1);
