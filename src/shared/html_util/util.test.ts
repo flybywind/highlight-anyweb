@@ -79,6 +79,7 @@ test("createHLConfWRange -- end at last element", () => {
 
   expect(rangeArr.length).eq(2);
   expect(rangeArr[0].textStartAt).eq(3);
+  expect(rangeArr[0].parentSelector).not.undefined;
   expect(rangeArr[0].textContent).eq(
     "element receives a click event when a pointing device button (such as a mouse's primary mouse button) is both pressed and released while the pointer is located inside the element."
   );
@@ -86,6 +87,7 @@ test("createHLConfWRange -- end at last element", () => {
   expect(rangeArr[0].category).eq("abc");
 
   expect(rangeArr[1].textStartAt).eq(0);
+  expect(rangeArr[1].parentSelector).not.undefined;
   expect(rangeArr[1].textContent).eq("If the button is pres");
   expect(rangeArr[1].textEndAt).eq(21);
   expect(rangeArr[1].category).eq("abc");
@@ -128,12 +130,65 @@ test("createHLConfWRange -- cross multiple layer of div", () => {
   });
 
   expect(rangeArr.length).eq(2);
-  expect(rangeArr[0].textStartAt).eq(4);
-  expect(rangeArr[0].textEndAt).eq(160);
+  expect(rangeArr[0].textStartAt).eq(21);
+  expect(rangeArr[0].textEndAt).eq(177);
   expect(rangeArr[0].textContent).eq(
     "sed on one element and the pointer is moved outside the element before the button is released, the event is fired on the most specific ancestor element that"
   );
   expect(rangeArr[1].textStartAt).eq(0);
   expect(rangeArr[1].textEndAt).eq(33);
   expect(rangeArr[1].textContent).eq("An element receives a click event");
+});
+
+test("forEach break", () => {
+  class StopIter implements Error {
+    name: string;
+    message: string;
+    constructor(msg: string = null) {
+      this.message = msg;
+      this.name = "stopIter";
+    }
+  }
+  const arr = [
+    [1, 2],
+    [3, 4, 5],
+    [6, 7],
+  ];
+  expect(() => {
+    try {
+      arr.forEach((v, i) => {
+        v.forEach((n, j) => {
+          console.log(`${i}th arr: at ${j} => ${n}`);
+          if (n == 4) {
+            throw new StopIter();
+          }
+        });
+      });
+    } catch (err) {
+      if (err instanceof StopIter) {
+        return;
+      } else {
+        throw err;
+      }
+    }
+  }).not.throw();
+
+  expect(() => {
+    try {
+      arr.forEach((v, i) => {
+        v.forEach((n, j) => {
+          console.log(`${i}th arr: at ${j} => ${n}`);
+          if (n == 4) {
+            throw new Error("unknow");
+          }
+        });
+      });
+    } catch (err) {
+      if (err instanceof StopIter) {
+        return;
+      } else {
+        throw err;
+      }
+    }
+  }).throw("unknow");
 });

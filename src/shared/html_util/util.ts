@@ -1,5 +1,12 @@
 import assert from "assert";
-
+export class StopForEach implements Error {
+  name: string;
+  message: string;
+  constructor(msg: string = null) {
+    this.message = msg;
+    this.name = "StopForEach";
+  }
+}
 /**
  *
  * @param e Node
@@ -165,13 +172,23 @@ export function forEachTextNode(
   rootElem: Element,
   callback: (h: Node) => void
 ) {
-  rootElem.childNodes.forEach((e) => {
-    if (e.nodeType == Node.ELEMENT_NODE) {
-      forEachTextNode(e as HTMLElement, callback);
-    } else {
-      if (e.nodeType == Node.TEXT_NODE) {
-        callback(e);
+  const _iter_ = (rootElem) => {
+    rootElem.childNodes.forEach((e) => {
+      if (e.nodeType == Node.ELEMENT_NODE) {
+        _iter_(e);
+      } else {
+        if (e.nodeType == Node.TEXT_NODE) {
+          callback(e);
+        }
       }
+    });
+  };
+  try {
+    _iter_(rootElem);
+  } catch (error) {
+    if (error instanceof StopForEach) {
+      return;
     }
-  });
+    throw error;
+  }
 }

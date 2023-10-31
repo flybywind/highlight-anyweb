@@ -9,6 +9,7 @@ import {
   forEachTextNode,
   firstBlockParent,
   loopTextNodeInRange,
+  StopForEach,
 } from "./util";
 
 /**
@@ -73,37 +74,28 @@ export class HighlightInfo {
    * @returns the newly inserted element
    */
   createHighlightElem(): HTMLElement {
-    let range: Range;
     const rootElem = document.querySelector(this.parentSelector);
     if (rootElem === null) {
       throw new Error("no such element found: " + this.parentSelector);
     }
-    if (this.range != null) {
-      // use the initialized range from construction, meaning it was created from user selection; Or it means it is gonna to be initialized from storage
-      range = this.range;
-    } else {
-      // construct range from start/end postion of the parent element
-      range = document.createRange();
-      let ti = 0;
-      let initStart = false,
-        initEnd = false;
-      forEachTextNode(rootElem, (n) => {
-        ti += n.textContent.length;
-        if (!initStart) {
-          if (ti >= this.textStartAt) {
-            initStart = true;
-            range.setStart(n, n.textContent.length - (ti - this.textStartAt));
-          }
-        } else {
-          if (!initEnd) {
-            if (ti >= this.textEndAt) {
-              range.setEnd(n, n.textContent.length - (ti - this.textEndAt));
-              initEnd = true;
-            }
-          }
+
+    // construct range from start/end postion of the parent element
+    const range = document.createRange();
+    let ti = 0;
+    let initStart = false;
+    forEachTextNode(rootElem, (n) => {
+      ti += n.textContent.length;
+      if (!initStart) {
+        if (ti >= this.textStartAt) {
+          initStart = true;
+          range.setStart(n, n.textContent.length - (ti - this.textStartAt));
         }
-      });
-    }
+      }
+      if (ti >= this.textEndAt) {
+        range.setEnd(n, n.textContent.length - (ti - this.textEndAt));
+        throw new StopForEach();
+      }
+    });
 
     const resultNode = document.createElement(MarkElement);
     resultNode.appendChild(range.extractContents());
@@ -191,12 +183,24 @@ export class Tool {
     let curConf: HLconfigure = {};
     let lastNode: Node = null;
     let textContent: string[] = [];
-    let startOffset = -1,
-      endOffset = -1;
+    let localStartOffset = -1, // offset in the local text node
+      localEndOffset = -1;
+    let startOffset = 0; // offset in the whole paragragh
+    // find the startOffset in the first block
+    forEachTextNode(
+      firstBlockParent(range.startContainer.parentElement),
+      (n) => {
+        if (range.startContainer === n) {
+          throw new StopForEach();
+        }
+        startOffset += n.textContent.length;
+      }
+    );
+
     loopTextNodeInRange(range, (n) => {
       const p2 = firstBlockParent(n.parentElement);
-      startOffset = n === range.startContainer ? range.startOffset : 0;
-      endOffset =
+      localStartOffset = n === range.startContainer ? range.startOffset : 0;
+      localEndOffset =
         n === range.endContainer ? range.endOffset : n.textContent.length;
       if (parentElem === null || parentElem !== p2) {
         // find a new block
@@ -211,16 +215,18 @@ export class Tool {
         }
         curConf = Object.assign({}, template);
         textContent = [];
-        curConf.textStartAt = startOffset;
+        curConf.textStartAt = startOffset + localStartOffset;
         parentElem = p2;
+        startOffset = 0;
       }
       lastNode = n;
-      textContent.push(n.textContent.slice(startOffset, endOffset));
+      textContent.push(n.textContent.slice(localStartOffset, localEndOffset));
     });
     // process the last part
     curConf.textContent = textContent.join("");
     if (curConf.textContent.replace(/\s/g, "").length > 0) {
       curConf.textEndAt = curConf.textStartAt + curConf.textContent.length;
+      curConf.parentSelector = getSelector(parentElem);
       ret.push(curConf);
     }
     return ret;
@@ -241,6 +247,7 @@ export class HighlightSeq {
   // construct the Highlight array once a new tab was loaded
   constructor(hls: HighlightInfo[]) {
     this.highlights = new OrderedMap<string, HighlightInfo>((h) => h.id);
+    this.hl_htmlele = new Map();
     if (hls != null) {
       hls.forEach((h) => {
         this.insertOneHighlight(h, null);
@@ -249,8 +256,8 @@ export class HighlightSeq {
   }
 
   /**
-   * insertOneHighlight insert the highlight in DOM and adjust the order of the highlight array to make sure that the hl appearring in front of pages also sits in front of the array
-   * @param hlconf in this highlight conf, if the range is not null, create highlight info from range, meaning it is a newly added highlight; if range is null, use the other path info, meaning it's an old marker that need to be restored from storage
+   * insertOneHighlight insert the highlight in DOM from hlconfig
+   * @param hlconf
    * @param callback accept the newly created highlight info array
    */
   insertOneHighlight(
@@ -260,10 +267,27 @@ export class HighlightSeq {
     const hl = new HighlightInfo(hlconf);
     this.highlights.append(hl);
     const newEle = hl.createHighlightElem();
+    this.hl_htmlele.set(hl.id, [newEle]);
     this._updateSiblingHle(newEle.childNodes);
     if (callback != null) {
       callback(this.highlights);
     }
+  }
+
+  insertOneHighlightRange(
+    range: Range,
+    color: string,
+    category: string,
+    callback: (hls: HighlightOrderedMap) => void = null
+  ) {
+    const hlconfs = Tool.createHLConfWRange(range, {
+      color: color,
+      category: category,
+    });
+
+    hlconfs.forEach((hl) => {
+      this.insertOneHighlight(hl, callback);
+    });
   }
 
   deleteOneHighlight(
@@ -273,30 +297,35 @@ export class HighlightSeq {
     let { ele, id } = hl;
     if (id === undefined && ele !== undefined) {
       id = Tool.getHighlightingID(ele);
-    } else if (id !== undefined && ele === undefined) {
-      ele = this.queryHighlightElem(id);
-    } else {
-      throw new Error("need to specify which element or id to be delete");
     }
     this.highlights.removeByKey(id);
-    const newChildNodes = unStyleIt(ele);
-    this._updateSiblingHle(newChildNodes);
+    this.hl_htmlele.get(id).forEach((ele) => {
+      const newChildNodes = unStyleIt(ele);
+      this._updateSiblingHle(newChildNodes, true);
+    });
     if (callback != null) {
       callback(this.highlights);
     }
   }
 
-  private queryHighlightElem(id: string): HTMLElement {
-    const hl = this.highlights.find(id);
-    const parentElem = document.querySelector(hl.parentSelector);
-    for (let i = 0; i < parentElem.childElementCount; i++) {
-      const e = parentElem.children[i] as HTMLElement;
-      if (Tool.getHighlightingID(e) === id) {
-        return e;
-      }
-    }
-    return null;
-  }
+  // private queryHighlightElem(id: string): HTMLElement[] {
+  //   const hl = this.highlights.find(id);
+  //   const parentElem = document.querySelector(hl.parentSelector) as HTMLElement;
+  //   const ret = new Array<HTMLElement>();
+  //   const dfs = (parentElem: HTMLElement) => {
+  //     for (let i = 0; i < parentElem.childElementCount; i++) {
+  //       const e = parentElem.children[i] as HTMLElement;
+  //       if (Tool.getHighlightingID(e) === id) {
+  //         ret.push(e);
+  //         continue;
+  //       }
+  //       dfs(e);
+  //     }
+  //   };
+
+  //   dfs(parentElem);
+  //   return ret;
+  // }
   // renderOne(id: HighlightID) {}
 
   // renderAll() {}
@@ -313,23 +342,25 @@ export class HighlightSeq {
    * update sibling highlight elements, like the background color of the highlighting elements embedding inside the current element and the segments array
    * @param elem the highlighting element
    */
-  private _updateSiblingHle(childNodes) {
+  private _updateSiblingHle(childNodes: Node[], onDelete = false) {
     childNodes.forEach((c) => {
       if (c.nodeType == Node.ELEMENT_NODE) {
         const e = c as HTMLElement;
         if (Tool.isHighlightingElem(e)) {
           Tool.setBackgroundColor(e);
-          const htmlArr = this.hl_htmlele.get(Tool.getHighlightingID(e));
-          const idxs = [];
-          htmlArr.forEach((h, i) => {
-            if (h === e) {
-              idxs.push(i);
+          if (onDelete) {
+            const htmlArr = this.hl_htmlele.get(Tool.getHighlightingID(e));
+            const idxs = [];
+            htmlArr.forEach((h, i) => {
+              if (h === e) {
+                idxs.push(i);
+              }
+            });
+            if (idxs.length == 0) {
+              htmlArr.push(e);
+            } else if (idxs.length >= 2) {
+              idxs.slice(1).forEach((i) => htmlArr.splice(i, 1));
             }
-          });
-          if (idxs.length == 0) {
-            htmlArr.push(e);
-          } else if (idxs.length >= 2) {
-            idxs.slice(1).forEach((i) => htmlArr.splice(i, 1));
           }
         }
       }

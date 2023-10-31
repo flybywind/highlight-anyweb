@@ -29,7 +29,8 @@ const mockDocument = () =>
 describe("fundamental test", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    const { document, Node } = mockDocument().window;
+    const { document, window, Node } = mockDocument().window;
+    global.window = window;
     global.document = document;
     global.Node = Node;
     const originFn = util.getSelector;
@@ -83,7 +84,8 @@ describe("highlights operation", () => {
       return r.toLowerCase();
     });
 
-    const { document, Node } = mockDocument().window;
+    const { document, window, Node } = mockDocument().window;
+    global.window = window;
     global.document = document;
     global.Node = Node;
     parentSelector = ".box .test-origin p:nth-child(1)";
@@ -126,12 +128,7 @@ describe("highlights operation", () => {
       endNode = parentElem.childNodes[3];
     range.setStart(startNode, 111);
     range.setEnd(endNode, 4);
-    hl = new HighlightInfo({
-      id: null,
-      range: range,
-      color: "green",
-    });
-    hlarr.insertOneHighlight(hl, (hls) => {
+    hlarr.insertOneHighlightRange(range, "green", "abc", (hls) => {
       expect(hls.size()).eq(2);
       expect(hls.at(1).textContent).eq("pointer is located inside the");
     });
@@ -140,16 +137,12 @@ describe("highlights operation", () => {
     endNode = parentElem.childNodes[1];
     range.setStart(startNode, 5);
     range.setEnd(endNode, 23);
-    hl = new HighlightInfo({
-      id: null,
-      range: range,
-      color: "orange",
-    });
-    hlarr.insertOneHighlight(hl, (hls) => {
+    hlarr.insertOneHighlightRange(range, "orange", "xyz", (hls) => {
       expect(hls.size()).eq(3);
       expect(hls.at(2).textContent).eq(" a pointing device");
     });
   });
+
   test("> restore after no overlap", () => {
     noOverLap();
     const { document, Node } = mockDocument().window;
