@@ -1,4 +1,6 @@
 import assert from "assert";
+
+import tinycolor from "tinycolor2";
 import { OrderedMap } from "../collections/OrderedMap";
 import { HColor } from "../const/colors";
 import {
@@ -11,12 +13,13 @@ import {
   loopTextNodeInRange,
   StopForEach,
 } from "./util";
+import { preventDefault } from "@root/src/pages/content/utils/event";
 
 /**
  * Main idea, store the rendered innerHTML for the highlights
  */
 
-interface HLconfigure {
+export interface HLconfigure {
   id?: string;
   // range?: Range | null;
   color?: HColor | string;
@@ -28,8 +31,8 @@ interface HLconfigure {
 }
 
 export const HighLightIDAttr = "hlaw";
-export const HighLightSeqAttr = "hlseq";
-export const HighLightOriginColorAttr = "hlsoc";
+export const HighLightCurrColorAttr = "hlcco";
+export const HighLightOriginColorAttr = "hloco";
 // one seq can map to multiple highlighting id, one id represent a small highl html segment
 export class HighlightInfo {
   id: string;
@@ -246,9 +249,10 @@ export type HighlightOrderedMap = OrderedMap<string, HighlightInfo>;
  */
 export class HighlightSeq {
   private hl_htmlele: Map<string, HTMLElement[]>;
+  private clickHandler: (e: HTMLElement) => void;
   highlights: HighlightOrderedMap;
   // construct the Highlight array once a new tab was loaded
-  constructor(hls: HighlightInfo[]) {
+  constructor(hls: HLconfigure[]) {
     this.highlights = new OrderedMap<string, HighlightInfo>((h) => h.id);
     this.hl_htmlele = new Map();
     if (hls != null) {
@@ -270,8 +274,10 @@ export class HighlightSeq {
     const hl = new HighlightInfo(hlconf);
     this.highlights.append(hl);
     const newEle = hl.createHighlightElem();
+
     this.hl_htmlele.set(hl.id, [newEle]);
     this._updateSiblingHle(newEle.childNodes, hlconf.color);
+    this._addEvent(hl.id, newEle);
     if (callback != null) {
       callback(this.highlights);
     }
@@ -306,9 +312,14 @@ export class HighlightSeq {
       const newChildNodes = unStyleIt(ele);
       this._updateSiblingHle(newChildNodes);
     });
+    this.hl_htmlele.delete(id);
     if (callback != null) {
       callback(this.highlights);
     }
+  }
+
+  setClickHLHander(h) {
+    this.clickHandler = h;
   }
 
   queryHighlightElem(id: string): HTMLElement[] {
@@ -330,13 +341,17 @@ export class HighlightSeq {
    * update sibling highlight elements, like the background color of the highlighting elements embedding inside the current element and the segments array
    * @param elem the highlighting element
    */
-  private _updateSiblingHle(childNodes: Node[], color: string = null) {
+  private _updateSiblingHle(
+    childNodes: { forEach: (any) => void },
+    color: string = null
+  ) {
     childNodes.forEach((c) => {
       if (c.nodeType == Node.ELEMENT_NODE) {
         const e = c as HTMLElement;
         if (Tool.isHighlightingElem(e)) {
           Tool.setBackgroundColor(e, color);
-          const htmlArr = this.hl_htmlele.get(Tool.getHighlightingID(e));
+          const hlID = Tool.getHighlightingID(e);
+          const htmlArr = this.hl_htmlele.get(hlID);
           const idxs = [];
           htmlArr.forEach((h, i) => {
             if (h === e) {
@@ -345,6 +360,7 @@ export class HighlightSeq {
           });
           if (idxs.length == 0) {
             htmlArr.push(e);
+            this._addEvent(hlID, e);
           } else if (idxs.length >= 2) {
             idxs.slice(1).forEach((i) => htmlArr.splice(i, 1));
           }
@@ -352,5 +368,35 @@ export class HighlightSeq {
         this._updateSiblingHle(e.childNodes, color);
       }
     });
+  }
+
+  private _addEvent(id: string, ele: HTMLElement) {
+    ele.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.clickHandler(ele);
+    };
+    ele.onmouseenter = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const allele = this.queryHighlightElem(id);
+      const hlconf = this.highlights.find(id);
+      allele.forEach((e) => {
+        e.setAttribute(HighLightCurrColorAttr, e.style.backgroundColor);
+        e.style.backgroundColor = tinycolor(hlconf.color)
+          .darken(10)
+          .toHexString();
+      });
+    };
+    ele.onmouseleave = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const allele = this.queryHighlightElem(id);
+      allele.forEach((e) => {
+        const currColor = e.getAttribute(HighLightCurrColorAttr);
+        e.setAttribute(HighLightCurrColorAttr, null);
+        e.style.backgroundColor = currColor;
+      });
+    };
   }
 }

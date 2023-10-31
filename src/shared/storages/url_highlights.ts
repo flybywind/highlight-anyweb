@@ -4,8 +4,8 @@ import {
   StorageType,
 } from "@src/shared/storages/base";
 
-import { HighlightInfo } from "../html_util/url_highlights";
-export type UrlHighlightMap = { [key: string]: HighlightInfo[] };
+import { HLconfigure } from "../html_util/url_highlights";
+export type UrlHighlightMap = { [key: string]: HLconfigure[] };
 
 type UrlHighlightsStorage = BaseStorage<UrlHighlightMap>;
 

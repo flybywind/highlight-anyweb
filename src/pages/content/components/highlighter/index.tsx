@@ -6,8 +6,6 @@ import App from "@src/pages/content/components/highlighter/app";
 
 import refreshOnUpdate from "virtual:reload-on-update-in-view";
 
-import { RenderStoredHighlights } from "./render";
-
 refreshOnUpdate("pages/content");
 
 const root = document.createElement("div");
@@ -28,7 +26,3 @@ createRoot(rootIntoShadow).render(
     <App />
   </React.StrictMode>
 );
-
-RenderStoredHighlights().then(() => {
-  console.log("render all highlights");
-});

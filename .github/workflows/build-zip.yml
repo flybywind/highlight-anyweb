@@ -2,12 +2,11 @@ name: Build And Upload Extension Zip Via Artifact
 
 on:
   push:
-    branches: [ main ]
+    branches: [main-xx]
   pull_request:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          cache: 'yarn'
+          cache: "yarn"
 
       - uses: actions/cache@v3
         with:
