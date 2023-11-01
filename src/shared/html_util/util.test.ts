@@ -33,7 +33,7 @@ const mockDocument = () =>
 beforeEach(() => {
   vi.clearAllMocks();
   const { document, Node, window } = mockDocument().window;
-  global.window = window;
+  global.window = window as unknown as Window & typeof globalThis;
   global.document = document;
   global.Node = Node;
 });

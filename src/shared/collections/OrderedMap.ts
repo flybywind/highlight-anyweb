@@ -1,5 +1,3 @@
-import assert from "assert";
-
 export class OrderedMap<K, V> {
   private _arr: V[];
   private _map: Map<K, V>;
@@ -31,7 +29,7 @@ export class OrderedMap<K, V> {
    * @param j the new position of the element, all the following elements will be moved back by one position
    */
   shiftUpward(i: number, j: number) {
-    assert(i > j, `i should > j, but got [${i}, ${j}]`);
+    // assert(i > j, `i should > j, but got [${i}, ${j}]`);
     let t = this._arr[j];
     this._arr[j] = this._arr[i];
     for (j = j + 1; j <= i; j++) {

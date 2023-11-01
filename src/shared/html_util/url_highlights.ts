@@ -1,5 +1,3 @@
-import assert from "assert";
-
 import tinycolor from "tinycolor2";
 import { OrderedMap } from "../collections/OrderedMap";
 import { HColor } from "../const/colors";
@@ -9,11 +7,10 @@ import {
   styleIt,
   unStyleIt,
   forEachTextNode,
-  firstBlockParent,
+  firstNoninlineParent,
   loopTextNodeInRange,
   StopForEach,
 } from "./util";
-import { preventDefault } from "@root/src/pages/content/utils/event";
 
 /**
  * Main idea, store the rendered innerHTML for the highlights
@@ -180,10 +177,10 @@ export class Tool {
     range: Range,
     template: HLconfigure
   ): HLconfigure[] {
-    assert(
-      template.textStartAt === undefined,
-      "template can only specify color / category "
-    );
+    // assert(
+    //   template.textStartAt === undefined,
+    //   "template can only specify color / category "
+    // );
     const ret: HLconfigure[] = [];
     let parentElem: HTMLElement = null;
     let curConf: HLconfigure = {};
@@ -194,7 +191,7 @@ export class Tool {
     let startOffset = 0; // offset in the whole paragragh
     // find the startOffset in the first block
     forEachTextNode(
-      firstBlockParent(range.startContainer.parentElement),
+      firstNoninlineParent(range.startContainer.parentElement),
       (n) => {
         if (range.startContainer === n) {
           throw new StopForEach();
@@ -204,7 +201,7 @@ export class Tool {
     );
 
     loopTextNodeInRange(range, (n) => {
-      const p2 = firstBlockParent(n.parentElement);
+      const p2 = firstNoninlineParent(n.parentElement);
       localStartOffset = n === range.startContainer ? range.startOffset : 0;
       localEndOffset =
         n === range.endContainer ? range.endOffset : n.textContent.length;

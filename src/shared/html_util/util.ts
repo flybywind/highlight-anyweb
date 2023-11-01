@@ -1,4 +1,3 @@
-import assert from "assert";
 export class StopForEach implements Error {
   name: string;
   message: string;
@@ -25,12 +24,16 @@ export function textElement(e: Node): boolean {
   }
   return true;
 }
-export function firstBlockParent(ele: Element) {
+export function firstNoninlineParent(ele: Element) {
   const style = window.getComputedStyle(ele);
-  if (style.display == "block") {
+  if (
+    style.display.length > 0 &&
+    !style.display.includes("inline") &&
+    style.display !== "none"
+  ) {
     return ele as HTMLElement;
   }
-  return firstBlockParent(ele.parentElement);
+  return firstNoninlineParent(ele.parentElement);
 }
 export function loopTextNodeInRange(range: Range, callback: (n: Node) => void) {
   let n = range.startContainer;
@@ -56,7 +59,7 @@ export function loopTextNodeInRange(range: Range, callback: (n: Node) => void) {
     if (n.nextSibling == null) {
       // search inside the same block element first
       let n1 = n.parentElement;
-      let n2 = firstBlockParent(n.parentElement);
+      let n2 = firstNoninlineParent(n.parentElement);
       while (n1.nextSibling == null && n1 !== n2) {
         n1 = n1.parentElement;
       }

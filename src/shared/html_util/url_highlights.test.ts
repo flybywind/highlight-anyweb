@@ -29,8 +29,7 @@ const mockDocument = () =>
 describe("fundamental test", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    const { document, window, Node } = mockDocument().window;
-    global.window = window;
+    const { document, Node } = mockDocument().window;
     global.document = document;
     global.Node = Node;
     const originFn = util.getSelector;
@@ -85,7 +84,8 @@ describe("highlights operation", () => {
     });
 
     const { document, window, Node } = mockDocument().window;
-    global.window = window;
+    global.window = window as unknown as Window & typeof globalThis;
+
     global.document = document;
     global.Node = Node;
     parentSelector = ".box .test-origin p:nth-child(1)";

@@ -16,7 +16,7 @@
     "wss": "node utils/reload/initReloadServer.js",
     "dev": "npm run build:hmr && (run-p wss build:watch)",
     "dev:firefox": "npm run build:hmr && (run-p wss build:firefox:watch)",
-    "test": "jest"
+    "test": "npx vitest"
   },
   "type": "module",
   "dependencies": {

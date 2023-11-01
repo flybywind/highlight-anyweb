@@ -28,13 +28,18 @@ interface Position {
 function App() {
   const defaultPos = { display: "none", left: "0px", top: "0px" } as Position;
   const inputRef = useRef(null);
+  const [hlRange, setHlRange] = useState({} as Range);
   const [pos, setPos] = useState(defaultPos);
   const [hlSeq, setHLSeq] = useState({} as HighlightSeq);
   const [hlID, setHLID] = useState(""); // current active highlight id
+  let hlLoaded = false;
   useEffect(() => {
     document.addEventListener("click", () => {
       if (getSelectedText().length > 0) {
         setPos(showMarkerAt());
+        const sel = document.getSelection();
+        const range = sel.getRangeAt(0);
+        setHlRange(range);
       } else {
         setPos(defaultPos);
       }
@@ -43,20 +48,23 @@ function App() {
     // document.addEventListener("mousemove", (ev) => {
     //   console.log("mouse position: ", ev.clientX, ev.clientY);
     // });
+    if (!hlLoaded) {
+      queryTabUrl().then((url) => {
+        let curHlist = hlListMap[url];
+        if (curHlist === undefined) {
+          curHlist = [];
+        }
+        const hlseq0 = new HighlightSeq(curHlist);
+        hlseq0.setClickHLHander(clickHLHandler);
+        setHLSeq(hlseq0);
+        console.log("load all highlihgts from storage:", curHlist);
+      });
+      hlLoaded = true;
+    }
   }, []);
   const tagList = useStorage(tagListStore);
   const recentTag = useStorage(recentTagStore);
   const hlListMap = useStorage(urlHighlightsStorage);
-  queryTabUrl().then((url) => {
-    let curHlist = hlListMap[url];
-    if (curHlist === undefined) {
-      curHlist = [];
-    }
-    const hlseq0 = new HighlightSeq(curHlist);
-    hlseq0.setClickHLHander(clickHLHandler);
-    setHLSeq(hlseq0);
-    console.log("load all highlihgts from storage:", curHlist);
-  });
   function showMarkerAt(): Position {
     const currRange = window.getSelection().getRangeAt(0);
     const rangeBounds = currRange.getBoundingClientRect();
@@ -98,9 +106,7 @@ function App() {
       }
       recentTagStore.set(category);
 
-      const sel = document.getSelection();
-      const range = sel.getRangeAt(0);
-      hlSeq.insertOneHighlightRange(range, color, category, storageCbk);
+      hlSeq.insertOneHighlightRange(hlRange, color, category, storageCbk);
       if (tagList.find((v) => v === category) === undefined) {
         tagListStore.set([...tagList, category]);
       }
@@ -128,7 +134,7 @@ function App() {
           ></span>
         ))}
         <span
-          className="color_circle"
+          className="color_circle delete"
           onClick={(e) => preventDefault(e, clickColorHandler, null)}
         >
           {"x"}

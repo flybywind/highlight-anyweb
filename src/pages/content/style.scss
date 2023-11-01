@@ -23,6 +23,12 @@ $marker-text-color: hsl(135, 86%, 43%);
     border-radius: math.div($marker-size, 4);
     margin: 2px;
     cursor: pointer;
+    &.delete {
+      color: black;
+      border: 1px solid black;
+      text-align: center;
+      line-height: $marker-size - 4;
+    }
   }
   .add-tag {
     text-align: center;
